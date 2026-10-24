@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tails - Sonic Forces: Speed Battles (Proyek UTS Grafkom WebGL)</title>
+<style>
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: radial-gradient(circle at 50% 42%, #fff536 0%, #f2d200 55%, #bf9c00 100%);
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    user-select: none;
+  }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
+  #title {
+    position: fixed; left: 18px; top: 14px; color: #1b2a6b;
+    background: rgba(255, 255, 255, 0.88); padding: 10px 16px;
+    border-radius: 14px; border: 2px solid #1b2a6b;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.16); backdrop-filter: blur(5px);
+    pointer-events: none; max-width: 430px;
+  }
+  #title h1 { margin: 0; font-size: 22px; letter-spacing: .5px; }
+  #title p { margin: 4px 0 0; font-size: 12px; opacity: .9; font-weight: 600; line-height: 1.35; }
+  
+  /* Legenda Warna Objek (Muncul saat Mode Geometri aktif) */
+  #legend {
+    display: none; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid rgba(27, 42, 107, 0.25);
+    font-size: 11.5px; font-weight: 700; line-height: 1.6;
+  }
+  .badge {
+    display: inline-block; width: 11px; height: 11px;
+    border-radius: 3px; margin-right: 6px; vertical-align: -1px;
+    border: 1px solid rgba(0,0,0,0.35);
+  }
+
+  #ui {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; align-items: center;
+    background: rgba(255, 255, 255, 0.92); padding: 10px 16px; border-radius: 15px;
+    border: 2px solid #1b2a6b; box-shadow: 0 8px 24px rgba(0,0,0,0.22);
+    max-width: 96vw; backdrop-filter: blur(5px);
+  }
+  #ui button, #ui select {
+    border: 2px solid #1b2a6b; background: #fff; color: #1b2a6b;
+    font-weight: 700; padding: 6px 12px; border-radius: 10px;
+    cursor: pointer; font-size: 12.5px; transition: all 0.15s ease;
+  }
+  #ui button:hover, #ui select:hover { background: #e8eeff; }
+  #ui button.on { background: #1b2a6b; color: #ffe600; }
+  #ui button.cam-btn { background: #f2f5ff; font-size: 12px; padding: 6px 10px; }
+  #ui .sep { width: 2px; height: 22px; background: rgba(27,42,107,0.22); margin: 0 2px; }
+  #ui label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #1b2a6b; font-weight: 700; cursor: pointer; }
+  #ui input[type="checkbox"] { accent-color: #1b2a6b; width: 15px; height: 15px; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="title">
+  <h1>Miles "Tails" Prower</h1>
+  <p>Sonic Forces: Speed Battles &middot; Pure WebGL (OOP Class)<br>
+  Drag: Putar Kamera | Scroll: Zoom</p>
+  <div id="legend">
+    <div><span class="badge" style="background:#3885ff"></span>Ellipsoid (Kepala Atas/Bawah, Moncong, Mata, Badan)</div>
+    <div><span class="badge" style="background:#ffd61a"></span>Cylinder (Kepala Tengah, Moncong Tengah, Lengan, Kaki)</div>
+    <div><span class="badge" style="background:#ff3847"></span>Elliptic Cone - Quadric 1 (Telinga, Kumis Pipi, Ujung Ekor)</div>
+    <div><span class="badge" style="background:#b845ff"></span>Elliptic Paraboloid - Quadric 2 (Bulu Dada, Sepatu)</div>
+    <div><span class="badge" style="background:#00d9cc"></span>Hyperboloid 1-Sheet - Quadric 3 (Leher / Bahu Atas)</div>
+    <div><span class="badge" style="background:#1fd655"></span>Mesh Kurva B&eacute;zier 3D (Poni, Mulut, Dua Ekor)</div>
+  </div>
+</div>
+
+<div id="ui">
+  <button data-mode="idle" class="on">Diam (Pose Ref)</button>
+  <button data-mode="walk">Lari Cepat</button>
+  <button data-mode="fly">Terbang (Arbitrary Axis)</button>
+  <button data-mode="wave">Melambai</button>
+  <div class="sep"></div>
+  <button class="cam-btn" data-cam="front">Depan</button>
+  <button class="cam-btn" data-cam="side">Samping</button>
+  <button class="cam-btn" data-cam="back">Belakang</button>
+  <div class="sep"></div>
+  <label>Tampilan:
+    <select id="viewMode">
+      <option value="normal">Warna Karakter Asli</option>
+      <option value="parts">Warna per Jenis Objek (Inspeksi)</option>
+      <option value="clay">Tanpa Warna (Abu-abu Clay)</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="wireBox"> Jaring Wireframe</label>
+  <label><input type="checkbox" id="arbBox" checked> Sumbu Arbitrary</label>
+  <label><input type="checkbox" id="ctrl"> Titik B&eacute;zier</label>
+  <label><input type="checkbox" id="auto"> Putar Otomatis</label>
+  <label><input type="checkbox" id="stageToggle"> Panggung</label>
+</div>
+
+<script src="libs.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
