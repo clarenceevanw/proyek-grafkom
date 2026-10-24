@@ -25,6 +25,7 @@ export class MyObject {
     this.t = defaultTransform(options.t, [0, 0, 0]);
     this.r = defaultTransform(options.r, [0, 0, 0]);
     this.s = defaultTransform(options.s, [1, 1, 1]);
+    this.rotationOrder = options.rotationOrder || 'YXZ';
     this.aa = options.aa || null;
     this.parts = options.parts || [];
     this.children = options.children || [];
@@ -43,13 +44,23 @@ export class MyObject {
       matrix = Matrix4.multiply(matrix, Matrix4.rotateAxis(this.aa.a, this.aa.ang));
     }
     if (this.r[0] || this.r[1] || this.r[2]) {
-      matrix = Matrix4.multiply(
-        matrix,
-        Matrix4.multiply(
-          Matrix4.rotateY(this.r[1]),
-          Matrix4.multiply(Matrix4.rotateX(this.r[0]), Matrix4.rotateZ(this.r[2])),
-        ),
-      );
+      if (this.rotationOrder === 'ZYX') {
+        matrix = Matrix4.multiply(
+          matrix,
+          Matrix4.multiply(
+            Matrix4.rotateZ(this.r[2]),
+            Matrix4.multiply(Matrix4.rotateY(this.r[1]), Matrix4.rotateX(this.r[0])),
+          ),
+        );
+      } else {
+        matrix = Matrix4.multiply(
+          matrix,
+          Matrix4.multiply(
+            Matrix4.rotateY(this.r[1]),
+            Matrix4.multiply(Matrix4.rotateX(this.r[0]), Matrix4.rotateZ(this.r[2])),
+          ),
+        );
+      }
     }
     if (this.s[0] !== 1 || this.s[1] !== 1 || this.s[2] !== 1) {
       matrix = Matrix4.multiply(matrix, Matrix4.scale(this.s[0], this.s[1], this.s[2]));
@@ -59,14 +70,26 @@ export class MyObject {
 
   partMatrix(parentMatrix, part) {
     let matrix = Matrix4.multiply(parentMatrix, Matrix4.translation(part.t[0], part.t[1], part.t[2]));
-    if (part.r[0] || part.r[1] || part.r[2]) {
-      matrix = Matrix4.multiply(
-        matrix,
-        Matrix4.multiply(
-          Matrix4.rotateY(part.r[1]),
-          Matrix4.multiply(Matrix4.rotateX(part.r[0]), Matrix4.rotateZ(part.r[2])),
-        ),
-      );
+    const pr = part.r || [0, 0, 0];
+    if (pr[0] || pr[1] || pr[2]) {
+      const order = part.rotationOrder || this.rotationOrder || 'YXZ';
+      if (order === 'ZYX') {
+        matrix = Matrix4.multiply(
+          matrix,
+          Matrix4.multiply(
+            Matrix4.rotateZ(pr[2]),
+            Matrix4.multiply(Matrix4.rotateY(pr[1]), Matrix4.rotateX(pr[0])),
+          ),
+        );
+      } else {
+        matrix = Matrix4.multiply(
+          matrix,
+          Matrix4.multiply(
+            Matrix4.rotateY(pr[1]),
+            Matrix4.multiply(Matrix4.rotateX(pr[0]), Matrix4.rotateZ(pr[2])),
+          ),
+        );
+      }
     }
     return Matrix4.multiply(matrix, Matrix4.scale(part.s[0], part.s[1], part.s[2]));
   }
