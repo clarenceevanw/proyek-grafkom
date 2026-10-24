@@ -304,10 +304,10 @@ export class Sonic {
     const time = elapsedTime;
     let currentPose = poseIdle(time + 10);
     if (this.animation === 'translate') {
-      const z = 2 * Math.sin(time * .7);
-      this.root.t = [0, .06, z];
+      const z = Math.min(time * .32, .7);
+      this.root.t = [0, .06 + Math.abs(Math.sin(time * 20)) * .14, z];
       this.root.r[1] = 0;
-      currentPose = poseRun(time * 9, .75);
+      currentPose = poseRun(time * 20, 1);
     } else if (this.animation === 'rotate') {
       const curlDuration = .45;
       const spinDuration = 1.3;

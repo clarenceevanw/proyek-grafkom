@@ -38,7 +38,7 @@ let elapsed = 0;
 
 const animationInfo = {
   idle: ['Idle', 'Gerakan dasar untuk membandingkan pose Sonic tanpa perpindahan besar.'],
-  translate: ['Jalan maju-mundur / Translate', 'Sonic bergerak lurus maju dan mundur pada sumbu depan-belakang (Z), dengan siklus langkah lari.'],
+  translate: ['Lari maju / Translate', 'Sonic berlari ke depan pada sumbu Z dengan ayunan tangan-kaki cepat dan pantulan badan. Jarak geraknya dibatasi agar tetap terlihat di viewer.'],
   rotate: ['Spin Bola / Rotasi', 'Sonic menggulung menjadi bola, berputar satu kali di tempat pada sumbu X, lalu membuka kembali dan kembali idle.'],
   scale: ['Scale', 'Seluruh model Sonic membesar dan mengecil secara seragam; proporsi tubuh tetap sama.'],
   arbitrary: ['Salto / Arbitrary Axis', 'Sonic melompat dan melakukan satu salto pada sumbu diagonal tetap (1,1,0) yang dinormalisasi. Dilihat dari depan, sumbu ini memiringkan putaran agar lebih mudah terlihat. Lintasan lompat adalah translasi; saltonya rotasi Rodrigues pada sumbu yang bukan X, Y, atau Z. Setelah mendarat, Sonic kembali idle.'],
