@@ -255,7 +255,7 @@ export class Sonic {
     buildArm(1, 'L'); buildArm(-1, 'R'); buildLeg(1, 'L'); buildLeg(-1, 'R');
 
     const ballShell = node({ name: 'ballShell', visible: false, t: [0, PELVY + .16, -.03], s: [.0001, .0001, .0001], parts: [
-      part('sphere', [0, 0, 0], [.46, .40, .50], blue, { spec: .35, rim: .3 }),
+      part('sphere', [0, 0, 0], [.46, .46, .46], blue, { spec: .35, rim: .3 }),
     ] });
     const golden = Math.PI * (3 - Math.sqrt(5));
     for (let i = 0; i < 16; i += 1) {
@@ -264,7 +264,7 @@ export class Sonic {
       const point = [Math.cos(golden * i) * radius, y, Math.sin(golden * i) * radius];
       const length = .15 + .05 * (i % 3);
       const spikeRadius = .085 + .015 * (i % 2);
-      ballShell.parts.push(this.#quadric('cone', [point[0] * .46, point[1] * .40, point[2] * .50], point, spikeRadius, spikeRadius * .6, length, blue, { spec: .3 }));
+      ballShell.parts.push(this.#quadric('cone', [point[0] * .46, point[1] * .46, point[2] * .46], point, spikeRadius, spikeRadius * .6, length, blue, { spec: .3 }));
     }
     add(off, ballShell);
     this.joints.ballShell = ballShell;
