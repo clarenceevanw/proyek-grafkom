@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tails Character Viewer</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #f0f3fa; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: #0a0d14; }
+    main { min-height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; padding: 18px clamp(12px, 2.2vw, 32px); }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    h1 { margin: 0; font-size: clamp(1.2rem, 2vw, 1.7rem); font-weight: 700; letter-spacing: -.03em; color: #ff9d1c; }
+    header p { margin: 4px 0 0; color: #9aa7be; font-size: .86rem; }
+    .status { padding: 8px 14px; border: 1px solid #4a341b; border-radius: 999px; background: #1c1611; color: #ffd699; font-size: .8rem; white-space: nowrap; }
+    .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 350px); gap: 16px; }
+    .stage { min-height: 0; overflow: hidden; border: 1px solid #36291a; border-radius: 16px; background: radial-gradient(circle at 50% 40%, #1e2638 0%, #080c14 85%); box-shadow: 0 18px 55px #0008; position: relative; }
+    canvas { display: block; width: 100%; height: 100%; min-height: 480px; touch-action: none; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    aside { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid #2d2938; border-radius: 16px; background: #12141f; max-height: calc(100vh - 100px); overflow-y: auto; }
+    h2 { margin: 0 0 8px; color: #a4b3cf; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+    .button-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+    button { min-height: 38px; padding: 7px 9px; border: 1px solid #443c50; border-radius: 8px; background: #1f202e; color: inherit; font: inherit; font-size: .82rem; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+    button:hover { background: #352f44; border-color: #9d7b57; }
+    button:active { transform: translateY(1px); }
+    button.active { background: #e07a10; border-color: #ffb752; color: #ffffff; font-weight: 600; }
+    button.primary { background: #f2f5fb; border-color: #f2f5fb; color: #12141c; font-weight: 650; }
+    button.primary:hover { background: #dce3f0; }
+    .description { min-height: 96px; padding: 12px; border-radius: 10px; background: #090a10; border: 1px solid #232230; color: #b2c0d8; font-size: .83rem; line-height: 1.5; }
+    .description strong { display: block; margin-bottom: 4px; color: #fff; }
+    .help { margin: auto 0 0; color: #8391ab; font-size: .76rem; line-height: 1.45; }
+    @media (max-width: 760px) {
+      main { min-height: 100dvh; grid-template-rows: auto auto; }
+      .workspace { grid-template-columns: 1fr; }
+      .stage { min-height: 52vh; }
+      canvas { min-height: 52vh; }
+      aside { max-height: none; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Tails Character Viewer</h1>
+        <p>Viewer model 3D Miles &quot;Tails&quot; Prower modular dan demonstrasi animasi WebGL</p>
+      </div>
+      <div id="status" class="status" aria-live="polite">Memuat Tails...</div>
+    </header>
+    <div class="workspace">
+      <div class="stage"><canvas id="gl" aria-label="Tampilan model Tails 3D"></canvas></div>
+      <aside>
+        <section>
+          <h2>Pose &amp; Animasi Karakter</h2>
+          <div class="button-grid" aria-label="Pilih animasi karakter">
+            <button data-animation="idle" class="active">Idle</button>
+            <button data-animation="walk">Walk / Jalan</button>
+            <button data-animation="fly" style="grid-column: 1 / -1">Fly / Terbang (Baling-baling)</button>
+          </div>
+        </section>
+        <section>
+          <h2>Sudut Kamera</h2>
+          <div class="button-grid" aria-label="Pilih sudut kamera">
+            <button data-view="front" class="active">Depan</button>
+            <button data-view="side">Samping</button>
+            <button data-view="back">Belakang</button>
+            <button data-view="threequarter">3/4 View</button>
+            <button data-view="free" style="grid-column: 1 / -1">Free Orbit</button>
+          </div>
+        </section>
+        <section class="button-grid">
+          <button id="reset" class="primary">Reset Pose</button>
+          <button id="camera-reset">Reset Kamera</button>
+        </section>
+        <div id="mode-description" class="description" aria-live="polite">
+          <strong id="mode-title">Idle</strong><span id="mode-copy">Tails berada pada pose dasar dengan napas halus, goyangan ekor santai, dan kedipan mata berkala.</span>
+        </div>
+        <p class="help">Drag pada canvas untuk memutar sudut kamera (orbit 360&deg;). Scroll mouse untuk zoom in/out. Gunakan tombol Depan, Samping, Belakang, dan 3/4 untuk melihat model dari berbagai sudut presisi.</p>
+      </aside>
+    </div>
+  </main>
+  <script type="module" src="./js/tails-viewer.js"></script>
+</body>
+</html>
