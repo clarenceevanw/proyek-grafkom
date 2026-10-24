@@ -64,6 +64,12 @@ function poseJump() {
   });
 }
 
+function blendPose(from, to, amount) {
+  const blended = {};
+  for (const key of Object.keys(from)) blended[key] = from[key] + (to[key] - from[key]) * amount;
+  return blended;
+}
+
 function poseHier(time) {
   return pose({
     hipL: .6 * Math.sin(time * 1.5),
@@ -298,20 +304,26 @@ export class Sonic {
     const time = elapsedTime;
     let currentPose = poseIdle(time + 10);
     if (this.animation === 'translate') {
-      const x = 4 * Math.sin(time * .7);
-      const z = 3 * Math.sin(time * 1.4);
-      const y = Math.abs(Math.sin(time * 2.1)) * .7;
-      this.root.t = [x, .06 + y, z];
-      this.root.r[1] = Math.atan2(4 * .7 * Math.cos(time * .7), 3 * 1.4 * Math.cos(time * 1.4));
+      const z = 2 * Math.sin(time * .7);
+      this.root.t = [0, .06, z];
+      this.root.r[1] = 0;
       currentPose = poseRun(time * 9, .75);
     } else if (this.animation === 'rotate') {
-      const cycle = time % 12;
-      const phase = Math.floor(cycle / 4);
-      const amount = smoothStep(0, 1, (cycle % 4) / 4) * Math.PI * 2;
-      this.joints.piv.r = phase === 0 ? [0, amount, 0] : phase === 1 ? [amount, 0, 0] : [0, 0, amount];
-      this.root.t = [0, .96, 0];
-      currentPose = poseIdle(time + 10);
-      currentPose.spL = .6; currentPose.spR = .6;
+      const curlDuration = .45;
+      const spinDuration = 1.3;
+      const unfoldEnd = curlDuration + spinDuration + .45;
+      if (time < unfoldEnd) {
+        const ball = time < curlDuration
+          ? smoothStep(0, curlDuration, time)
+          : time < curlDuration + spinDuration
+            ? 1
+            : 1 - smoothStep(curlDuration + spinDuration, unfoldEnd, time);
+        const spinProgress = clamp((time - curlDuration) / spinDuration, 0, 1);
+        this.root.t = [0, .06, 0];
+        this.joints.piv.r = [spinProgress * Math.PI * 2, 0, 0];
+        currentPose = poseIdle(time + 10);
+        currentPose.ball = ball;
+      }
     } else if (this.animation === 'scale') {
       const cycle = time % 12;
       const first = smoothStep(3.4, 4, cycle) * (1 - smoothStep(7.4, 8, cycle));
@@ -325,10 +337,14 @@ export class Sonic {
       currentPose.sy = firstScale * firstWeight + secondScaleY * first + thirdScale[1] * second;
       currentPose.sz = firstScale * firstWeight + secondScaleXZ * first + thirdScale[2] * second;
     } else if (this.animation === 'arbitrary') {
-      const axis = normalize3([Math.sin(time * .5) + .15, .6 + .4 * Math.cos(time * .37), Math.cos(time * .43)]);
-      this.root.t = [0, .96, 0];
-      this.joints.piv.aa = { a: axis, ang: time * 2.4 };
-      currentPose = poseJump();
+      const duration = 2.6;
+      if (time < duration) {
+        const progress = time / duration;
+        const jumpBlend = smoothStep(0, .2, time) * (1 - smoothStep(2.3, duration, time));
+        this.root.t = [0, .06 + 1.25 * 4 * progress * (1 - progress), 0];
+        this.joints.piv.aa = { a: normalize3([1, 1, 0]), ang: progress * Math.PI * 2 };
+        currentPose = blendPose(currentPose, poseJump(), jumpBlend);
+      }
     } else if (this.animation === 'hierarchical') {
       currentPose = poseHier(time);
     }

@@ -3,35 +3,89 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Sonic Viewport</title>
+  <title>Sonic Transform Lab</title>
   <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; background: #0b1120; color: #e7efff; }
     * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101827; color: #e7efff; }
-    main { width: min(96vw, 1100px); padding: 18px 0; }
-    h1 { margin: 0 0 12px; font-size: 1.15rem; font-weight: 600; }
-    canvas { display: block; width: 100%; aspect-ratio: 16 / 10; background: #c8eaff; border-radius: 8px; touch-action: none; cursor: grab; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradient(ellipse at 40% -20%, #1b3154 0, #0b1120 55%); }
+    main { min-height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 18px; padding: 20px clamp(14px, 2.4vw, 36px); }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    h1 { margin: 0; font-size: clamp(1.2rem, 2vw, 1.7rem); font-weight: 700; letter-spacing: -.03em; }
+    header p { margin: 5px 0 0; color: #9eb3d4; font-size: .88rem; }
+    .status { padding: 8px 12px; border: 1px solid #314563; border-radius: 999px; color: #b8c8e4; font-size: .8rem; white-space: nowrap; }
+    .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); gap: 16px; }
+    .stage { min-height: 0; overflow: hidden; border: 1px solid #314563; border-radius: 16px; background: #c8eaff; box-shadow: 0 18px 55px #0005; }
+    canvas { display: block; width: 100%; height: 100%; min-height: 440px; touch-action: none; cursor: grab; }
     canvas:active { cursor: grabbing; }
-    nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    button { padding: 8px 13px; border: 1px solid #5878aa; border-radius: 6px; background: #1b315a; color: inherit; cursor: pointer; }
-    button:hover { background: #294878; }
+    aside { display: flex; flex-direction: column; gap: 14px; padding: 16px; border: 1px solid #263750; border-radius: 16px; background: #111c2e; }
+    h2 { margin: 0 0 9px; color: #9eb3d4; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+    .button-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    button { min-height: 40px; padding: 8px 10px; border: 1px solid #405777; border-radius: 9px; background: #1b3150; color: inherit; font: inherit; font-size: .83rem; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+    button:hover { background: #294878; border-color: #7da5dc; }
+    button:active { transform: translateY(1px); }
     button.active { background: #2467ff; border-color: #a8c8ff; }
-    p { margin: 10px 0 0; color: #b8c8e4; font-size: .9rem; }
-    #status { margin-top: 6px; color: #9eb3d4; font-size: .8rem; }
+    button.primary { background: #e7efff; border-color: #e7efff; color: #10213a; font-weight: 650; }
+    button.primary:hover { background: #cbdcff; }
+    .description { min-height: 104px; padding: 12px; border-radius: 10px; background: #0b1423; color: #c0cde0; font-size: .84rem; line-height: 1.55; }
+    .description strong { display: block; margin-bottom: 4px; color: #fff; }
+    .help { margin: auto 0 0; color: #91a5c3; font-size: .78rem; line-height: 1.5; }
+    @media (max-width: 760px) {
+      main { min-height: 100dvh; grid-template-rows: auto auto; }
+      .workspace { grid-template-columns: 1fr; }
+      .stage { min-height: 54vh; }
+      canvas { min-height: 54vh; }
+      aside { display: grid; grid-template-columns: 1fr 1fr; }
+      aside section:last-of-type, .description, .help { grid-column: 1 / -1; }
+      .help { margin-top: 0; }
+    }
+    @media (max-width: 440px) {
+      aside { grid-template-columns: 1fr; }
+      aside section:last-of-type, .description, .help { grid-column: auto; }
+      .status { font-size: .7rem; padding: 7px 9px; }
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>Sonic 3D Viewer</h1>
-    <canvas id="gl" aria-label="Tampilan model Sonic 3D"></canvas>
-    <nav aria-label="Sudut pandang kamera">
-      <button data-view="front" class="active">Front</button>
-      <button data-view="back">Back</button>
-      <button data-view="side">Side</button>
-      <button data-view="free">Free view</button>
-    </nav>
-    <p>Drag pada model untuk memutar kamera. Scroll untuk zoom.</p>
-    <div id="status">Memuat Sonic...</div>
+    <header>
+      <div>
+        <h1>Sonic Transform Lab</h1>
+        <p>Viewer model 3D dan demonstrasi transformasi</p>
+      </div>
+      <div id="status" class="status" aria-live="polite">Memuat Sonic...</div>
+    </header>
+    <div class="workspace">
+      <div class="stage"><canvas id="gl" aria-label="Tampilan model Sonic 3D"></canvas></div>
+      <aside>
+        <section>
+          <h2>Mode demonstrasi</h2>
+          <div class="button-grid" aria-label="Pilih mode transformasi">
+            <button data-animation="idle" class="active">Idle</button>
+            <button data-animation="translate">Jalan maju-mundur</button>
+            <button data-animation="rotate">Spin Bola</button>
+            <button data-animation="scale">Scale</button>
+            <button data-animation="arbitrary">Salto / Arbitrary</button>
+            <button data-animation="hierarchical">Hierarchical</button>
+          </div>
+        </section>
+        <section>
+          <h2>Sudut kamera</h2>
+          <div class="button-grid" aria-label="Pilih sudut kamera">
+            <button data-view="front" class="active">Depan</button>
+            <button data-view="back">Belakang</button>
+            <button data-view="side">Samping</button>
+            <button data-view="free">Free view</button>
+          </div>
+        </section>
+        <section>
+          <button id="reset" class="primary" style="width:100%">Reset pose</button>
+        </section>
+        <div id="mode-description" class="description" aria-live="polite">
+          <strong id="mode-title">Idle</strong><span id="mode-copy">Sonic berada pada pose dasar dengan gerakan idle ringan.</span>
+        </div>
+        <p class="help">Drag pada model untuk orbit kamera. Scroll untuk zoom. Hierarchical menggerakkan sendi dalam rantai parent-child, bukan memindahkan karakter saja.</p>
+      </aside>
+    </div>
   </main>
   <script type="module" src="./js/sonic-viewer.js"></script>
 </body>

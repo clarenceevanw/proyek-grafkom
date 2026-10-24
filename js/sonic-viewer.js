@@ -11,6 +11,8 @@ import { Sonic } from './characters/Sonic.js';
 
 const canvas = document.getElementById('gl');
 const status = document.getElementById('status');
+const modeTitle = document.getElementById('mode-title');
+const modeCopy = document.getElementById('mode-copy');
 const gl = canvas.getContext('webgl', { antialias: true });
 if (!gl) throw new Error('WebGL tidak tersedia');
 
@@ -33,6 +35,33 @@ let lastX = 0;
 let lastY = 0;
 let lastFrame = performance.now();
 let elapsed = 0;
+
+const animationInfo = {
+  idle: ['Idle', 'Gerakan dasar untuk membandingkan pose Sonic tanpa perpindahan besar.'],
+  translate: ['Jalan maju-mundur / Translate', 'Sonic bergerak lurus maju dan mundur pada sumbu depan-belakang (Z), dengan siklus langkah lari.'],
+  rotate: ['Spin Bola / Rotasi', 'Sonic menggulung menjadi bola, berputar satu kali di tempat pada sumbu X, lalu membuka kembali dan kembali idle.'],
+  scale: ['Scale', 'Ukuran Sonic berubah secara bertahap; bagian tubuh juga memperlihatkan perubahan skala pada sumbu yang berbeda.'],
+  arbitrary: ['Salto / Arbitrary Axis', 'Sonic melompat dan melakukan satu salto pada sumbu diagonal tetap (1,1,0) yang dinormalisasi. Dilihat dari depan, sumbu ini memiringkan putaran agar lebih mudah terlihat. Lintasan lompat adalah translasi; saltonya rotasi Rodrigues pada sumbu yang bukan X, Y, atau Z. Setelah mendarat, Sonic kembali idle.'],
+  hierarchical: ['Hierarchical', 'Sendi bergerak sebagai rantai parent-child: misalnya gerak bahu membawa lengan, siku, dan tangan, sedangkan gerak siku hanya memengaruhi bagian di bawahnya.']
+};
+
+function setAnimation(mode) {
+  sonic.setAnimation(mode);
+  elapsed = 0;
+  lastFrame = performance.now();
+  document.querySelectorAll('[data-animation]').forEach((button) => {
+    button.classList.toggle('active', button.dataset.animation === mode);
+  });
+  [modeTitle.textContent, modeCopy.textContent] = animationInfo[mode];
+}
+
+document.querySelectorAll('[data-animation]').forEach((button) => {
+  button.addEventListener('click', () => setAnimation(button.dataset.animation));
+});
+document.getElementById('reset').addEventListener('click', () => {
+  sonic.reset();
+  setAnimation('idle');
+});
 
 function setView(view) {
   if (view === 'front') { yaw = 0; pitch = 0; }
