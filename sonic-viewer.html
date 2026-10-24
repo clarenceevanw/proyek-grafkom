@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Sonic Viewport</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #101827; color: #e7efff; }
+    main { width: min(96vw, 1100px); padding: 18px 0; }
+    h1 { margin: 0 0 12px; font-size: 1.15rem; font-weight: 600; }
+    canvas { display: block; width: 100%; aspect-ratio: 16 / 10; background: #c8eaff; border-radius: 8px; touch-action: none; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    button { padding: 8px 13px; border: 1px solid #5878aa; border-radius: 6px; background: #1b315a; color: inherit; cursor: pointer; }
+    button:hover { background: #294878; }
+    button.active { background: #2467ff; border-color: #a8c8ff; }
+    p { margin: 10px 0 0; color: #b8c8e4; font-size: .9rem; }
+    #status { margin-top: 6px; color: #9eb3d4; font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sonic 3D Viewer</h1>
+    <canvas id="gl" aria-label="Tampilan model Sonic 3D"></canvas>
+    <nav aria-label="Sudut pandang kamera">
+      <button data-view="front" class="active">Front</button>
+      <button data-view="back">Back</button>
+      <button data-view="side">Side</button>
+      <button data-view="free">Free view</button>
+    </nav>
+    <p>Drag pada model untuk memutar kamera. Scroll untuk zoom.</p>
+    <div id="status">Memuat Sonic...</div>
+  </main>
+  <script type="module" src="./js/sonic-viewer.js"></script>
+</body>
+</html>
