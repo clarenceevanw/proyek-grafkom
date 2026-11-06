@@ -264,7 +264,7 @@ export class Sonic {
       const point = [Math.cos(golden * i) * radius, y, Math.sin(golden * i) * radius];
       const length = .15 + .05 * (i % 3);
       const spikeRadius = .085 + .015 * (i % 2);
-      ballShell.parts.push(this.#quadric('cone', [point[0] * .46, point[1] * .46, point[2] * .46], point, spikeRadius, spikeRadius * .6, length, blue, { spec: .3 }));
+      ballShell.parts.push(this.#quadric('paraboloid', [point[0] * .46, point[1] * .46, point[2] * .46], point, spikeRadius, spikeRadius * .6, length, blue, { spec: .3 }));
     }
     add(off, ballShell);
     this.joints.ballShell = ballShell;
@@ -310,7 +310,7 @@ export class Sonic {
       currentPose = poseRun(time * 20, 1);
     } else if (this.animation === 'rotate') {
       const curlDuration = .45;
-      const spinDuration = 1.3;
+      const spinDuration = 5.9;
       const unfoldEnd = curlDuration + spinDuration + .45;
       if (time < unfoldEnd) {
         const ball = time < curlDuration
@@ -320,7 +320,7 @@ export class Sonic {
             : 1 - smoothStep(curlDuration + spinDuration, unfoldEnd, time);
         const spinProgress = clamp((time - curlDuration) / spinDuration, 0, 1);
         this.root.t = [0, .06, 0];
-        this.joints.piv.r = [spinProgress * Math.PI * 2, 0, 0];
+        this.joints.piv.r = [spinProgress * Math.PI * 2 * 3, 0, 0];
         currentPose = poseIdle(time + 10);
         currentPose.ball = ball;
       }
