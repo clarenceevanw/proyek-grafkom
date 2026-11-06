@@ -41,6 +41,11 @@ canvas.addEventListener('wheel', (event) => {
 
 window.addEventListener('keydown', (event) => {
   const code = event.code;
+  if (code === 'KeyG') {
+    event.preventDefault();
+    scene.startRace();
+    return;
+  }
   if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight'].includes(code)) return;
   if (code.startsWith('Key')) event.preventDefault();
   pressedKeys.add(code);
@@ -54,7 +59,7 @@ function moveCamera(dt) {
   if (!forward && !strafe) return;
 
   const length = Math.hypot(forward, strafe);
-  const speed = 12 * (pressedKeys.has('ShiftLeft') || pressedKeys.has('ShiftRight') ? 2.5 : 1);
+  const speed = 5 * (pressedKeys.has('ShiftLeft') || pressedKeys.has('ShiftRight') ? 2.5 : 1);
   const forwardX = -Math.sin(yaw);
   const forwardZ = -Math.cos(yaw);
   const rightX = Math.cos(yaw);
