@@ -215,7 +215,7 @@ export class Knuckles {
 
     const tor = node({ name: 'tor', t: [0, 1.45 + 2 * D, 0] });
     const head = node({ name: 'head', t: [0, 1.15, 0] });
-    const tailG = node({ name: 'tailG', t: [0, .05, -.3] });
+    const tailG = node({ name: 'tailG', t: [0, .05, -.2] });
 
     model.addChild(tor);
 
