@@ -469,8 +469,7 @@ export class Tails {
       this.#part(knee, 'cylinder', [0, -0.19, 0], [0.064, 0.38, 0.064],  COL.orange, 0.08);
 
       const foot = this.#node(knee, `Foot${s}`, [0, -0.40, 0], [0, s * -0.08, 0]);
-      this.#part(foot, 'cylinderCuff', [0, 0.11, 0], [0.154, 0.075, 0.160], COL.white, 0.18, { r: [0.04, 0, 0] });
-      this.#part(foot, 'cylinderCuff', [0, 0.05, 0], [0.162, 0.075, 0.168], COL.white, 0.18, { r: [-0.04, 0, 0] });
+      this.#part(foot, 'cylinderCuff', [0, 0.045, 0], [0.160, 0.075, 0.164], COL.white, 0.18);
       this.#part(foot, 'cylinder',     [0, 0.00, 0], [0.134, 0.040, 0.144], COL.black, 0.15);
 
       // Red heel
@@ -478,8 +477,7 @@ export class Tails {
       this.#part(foot, 'cylinder', [0, -0.06, -0.02], [0.150, 0.120, 0.160], COL.red, 0.42);
 
       // White shoe front
-      this.#part(foot, 'sphere',     [0, -0.125, 0.14], [0.190, 0.148, 0.270], COL.white, 0.38, { r: [0.08, 0, 0] });
-      this.#part(foot, 'paraboloid', [0, -0.185, 0.08], [0.192, 0.340, 0.135], COL.white, 0.38, { r: [Math.PI / 2, 0, 0] });
+      this.#part(foot, 'sphere',   [0, -0.125, 0.14], [0.190, 0.148, 0.270], COL.white, 0.38, { r: [0.08, 0, 0] });
 
       // Gray sole
       this.#part(foot, 'cylinder', [0, -0.205, 0.05], [0.196, 0.038, 0.360], COL.gray, 0.15);
