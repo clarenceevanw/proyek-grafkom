@@ -320,7 +320,7 @@ export class Sonic {
             : 1 - smoothStep(curlDuration + spinDuration, unfoldEnd, time);
         const spinProgress = clamp((time - curlDuration) / spinDuration, 0, 1);
         this.root.t = [0, .06, 0];
-        this.joints.piv.r = [spinProgress * Math.PI * 2 * 3, 0, 0];
+        this.joints.piv.r = [spinProgress * Math.PI * 2 * 6, 0, 0];
         currentPose = poseIdle(time + 10);
         currentPose.ball = ball;
       }
