@@ -622,7 +622,7 @@ export class Knuckles {
         this.root.t = [0, 0, z];
       }
     } else if (mode === 'run') {
-      const w = 20;
+      const w = 13;
       const S = Math.sin(time * w);
       const C = Math.cos(time * w);
       const amp = 1.3;
