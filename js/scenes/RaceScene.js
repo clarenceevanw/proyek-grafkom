@@ -12,7 +12,17 @@ import {
 } from '../shaders/sonicShader.js';
 
 const START_Z = -32.5;
+const FINISH_Z = 30;
 const LANE_X = 3.8 / 3;
+const SONIC_RUN_IN_END = 1.2;
+const SONIC_FINISH_TIME = 8;
+const SONIC_BALL_END = SONIC_FINISH_TIME;
+const TAILS_FINISH_TIME = 10;
+const KNUCKLES_FINISH_TIME = 12;
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
 
 export class RaceScene {
   constructor(gl) {
@@ -34,29 +44,62 @@ export class RaceScene {
     this.environment.shadow.visible = false;
 
     this.runners = [
-      { name: 'Sonic', lane: 'kiri', x: -2 * LANE_X, visualScale: .9, character: new Sonic(gl, { renderer: this.renderer, shader: this.sonicShader }) },
-      { name: 'Knuckles', lane: 'tengah', x: 0, visualScale: .48, character: new Knuckles(gl, { renderer: this.renderer }) },
-      { name: 'Tails', lane: 'kanan', x: 2 * LANE_X, visualScale: .78, character: new Tails(gl, { renderer: this.renderer }) },
+      { name: 'Sonic', lane: 'kiri', x: -2 * LANE_X, visualScale: .9, finishTime: SONIC_FINISH_TIME, character: new Sonic(gl, { renderer: this.renderer, shader: this.sonicShader }) },
+      { name: 'Knuckles', lane: 'tengah', x: 0, visualScale: .48, finishTime: KNUCKLES_FINISH_TIME, character: new Knuckles(gl, { renderer: this.renderer }) },
+      { name: 'Tails', lane: 'kanan', x: 2 * LANE_X, visualScale: .78, finishTime: TAILS_FINISH_TIME, character: new Tails(gl, { renderer: this.renderer }) },
     ];
     this.runners.forEach(({ character }) => character.setAnimation('idle'));
+    this.runners.forEach((runner) => {
+      runner.mode = 'idle';
+      runner.appliedZ = START_Z;
+    });
     this.hasAppliedLineup = false;
+    this.raceStartedAt = null;
   }
 
   update(dt, elapsedTime) {
     this.environment.update(elapsedTime);
+    if (this.raceStartedAt === null) this.raceStartedAt = elapsedTime;
+    const raceTime = Math.max(0, elapsedTime - this.raceStartedAt);
 
     for (const runner of this.runners) {
       const root = runner.character.getRoot();
       if (this.hasAppliedLineup) {
         root.t[0] -= runner.x;
-        root.t[2] -= START_Z;
+        root.t[2] -= runner.appliedZ;
         root.s = root.s.map((value) => value / runner.visualScale);
       }
 
-      runner.character.update(dt, elapsedTime);
+      let mode;
+      let sonicModeTime = raceTime;
+      if (runner.name === 'Sonic') {
+        if (raceTime < SONIC_RUN_IN_END) {
+          mode = 'translate';
+          sonicModeTime = raceTime;
+        } else if (raceTime < SONIC_BALL_END) {
+          mode = 'rotate';
+          sonicModeTime = raceTime - SONIC_RUN_IN_END;
+        } else {
+          mode = 'idle';
+          sonicModeTime = raceTime - runner.finishTime;
+        }
+      } else if (raceTime < runner.finishTime) {
+        mode = runner.name === 'Tails' ? 'fly' : 'run';
+      } else {
+        mode = 'idle';
+      }
+
+      if (mode !== runner.mode) {
+        runner.character.setAnimation(mode, elapsedTime);
+        runner.mode = mode;
+      }
+      runner.character.update(dt, runner.name === 'Sonic' ? sonicModeTime : elapsedTime);
+
+      const progress = clamp01(raceTime / runner.finishTime);
+      runner.appliedZ = START_Z + (FINISH_Z - START_Z) * progress;
 
       root.t[0] += runner.x;
-      root.t[2] += START_Z;
+      root.t[2] += runner.appliedZ;
       root.s = root.s.map((value) => value * runner.visualScale);
     }
     this.hasAppliedLineup = true;
