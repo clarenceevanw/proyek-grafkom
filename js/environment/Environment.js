@@ -31,7 +31,6 @@ export class Environment {
     this.randomSeed = 7;
     this.meshes = this.#createMeshes();
     this.root = this.#createScene();
-    this.skyPart = this.#part('sphere', [0, 0, 0], [1, 1, 1], [1, 1, 1], { mode: 1, spec: 0 });
     this.shadow = createNode({ parts: [this.#part('sphere', [0, 0, 0], [.6, .01, .6], [0, 0, 0], { mode: 4, alpha: .4 })] });
   }
 
@@ -112,20 +111,33 @@ export class Environment {
       }
     });
 
-    for (let a = 0; a < 12; a += 1) {
-      const angle = a * Math.PI * 2 / 12 + .2;
-      const radius = 36 + ((a * 7) % 5) * 3;
-      const position = a === 8 ? [-25, -38] : [Math.cos(angle) * radius, Math.sin(angle) * radius];
+    const hills = [
+      { position: [35.2824, 7.1521], scale: [9, 6, 8] },
+      { position: [-29.7939, 33.7243], scale: [12, 6, 8] },
+      { position: [-34.1315, 11.4473], scale: [15, 8.2, 8] },
+      { position: [-41.1628, -8.3441], scale: [9, 10.4, 8] },
+      { position: [-35.9725, -31.7801], scale: [12, 12.6, 8] },
+      { position: [-25, -38], scale: [15, 6, 8] },
+      { position: [23.8351, -26.9794], scale: [12, 10.4, 8] },
+      { position: [39.8201, -13.3552], scale: [15, 12.6, 8] },
+    ];
+    hills.forEach(({ position, scale }) => {
       add(root, node({ t: [position[0], -1.5, position[1]], parts: [
-        this.#part('sphere', [0, 0, 0], [9 + (a % 3) * 3, 6 + (a % 4) * 2.2, 8], [1, 1, 1], { mode: 3, spec: 0 }),
+        this.#part('sphere', [0, 0, 0], scale, [1, 1, 1], { mode: 3, spec: 0 }),
       ] }));
-    }
-    [[-21, -10], [21, 12], [-23, 13], [22, -12]].forEach((position, index) => add(root, node({
+    });
+    const smallHills = [
+      { position: [-21, -10], scale: [6, 3.6, 5] },
+      { position: [21, 12], scale: [7, 3.6, 5] },
+      { position: [-23, 13], scale: [8, 3.6, 5] },
+      { position: [22, -12], scale: [9, 3.6, 5] },
+    ];
+    smallHills.forEach(({ position, scale }) => add(root, node({
       t: [position[0], -1.2, position[1]],
-      parts: [this.#part('sphere', [0, 0, 0], [6 + index, 3.6, 5], [1, 1, 1], { mode: 3, spec: 0 })],
+      parts: [this.#part('sphere', [0, 0, 0], scale, [1, 1, 1], { mode: 3, spec: 0 })],
     })));
 
-    const palmPositions = [[-10, -25], [10, -18], [-10, -11], [10, -4], [-10, 4], [10, 11], [-10, 18], [10, 25], [12, 0]];
+    const palmPositions = [[-10, -25], [10, -18], [-10, -11], [10, -4], [-10, 4], [10, 11], [-10, 18], [10, 25], [12, 0], [9.5, 36], [-9.5, 36]];
     palmPositions.forEach((position, index) => {
       const scale = .9 + (index % 3) * .15;
       const palm = node({ t: [position[0], 0, position[1]], r: [0, this.#random() * Math.PI * 2, 0], s: [scale, scale, scale], parts: [
@@ -204,10 +216,6 @@ export class Environment {
   }
 
   render(context) {
-    const gl = context.gl;
-    gl.disable(gl.DEPTH_TEST);
-    this.#renderPart(this.skyPart, Matrix4.multiply(Matrix4.translation(context.cameraPosition[0], context.cameraPosition[1], context.cameraPosition[2]), Matrix4.scale(300, 300, 300)), context);
-    gl.enable(gl.DEPTH_TEST);
     this.root.traverse(Matrix4.identity(), (_node, _world, part, world) => this.#renderPart(part, world, context));
     this.shadow.traverse(Matrix4.identity(), (_node, _world, part, world) => this.#renderPart(part, world, context));
   }
