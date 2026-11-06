@@ -183,25 +183,26 @@ export class Sonic {
 
     for (const side of [1, -1]) {
       head.parts.push(
-        part('sphere', [side * .16, .64, .29], [.20, .05, .12], blue, { r: [0, 0, side * .32] }),
+        part('sphere', [side * .16, .64, .34], [.20, .05, .09], blue, { r: [0, 0, side * .25] }),
         part('cone', [side * .25, .60, -.02], [.14, .36, .06], blue, { r: [0, 0, -side * .30] }),
         part('cone', [side * .255, .60, .015], [.085, .27, .035], tan, { r: [0, 0, -side * .30] }),
       );
-      const eye = add(head, node({ name: side > 0 ? 'eyeL' : 'eyeR', t: [side * .15, .40, .31], parts: [
-        part('sphere', [0, 0, 0], [.17, .21, .09], white, { spec: .5, shin: 60 }),
-        part('sphere', [-side * .03, -.015, .065], [.075, .105, .04], green, { spec: .6, shin: 60 }),
-        part('sphere', [-side * .03, -.015, .100], [.04, .06, .025], black, { spec: .9, shin: 90 }),
+      const eye = add(head, node({ name: side > 0 ? 'eyeL' : 'eyeR', t: [side * .16, .41, .385], parts: [
+        part('sphere', [0, 0, 0], [.15, .21, .055], white, { spec: .5, shin: 60 }),
+        part('sphere', [0, -.01, .032], [.08, .13, .028], green, { spec: .6, shin: 60 }),
+        part('sphere', [0, -.01, .05], [.042, .076, .016], black, { spec: .9, shin: 90 }),
+        part('sphere', [-side * .018, .025, .062], [.02, .03, .006], white, { spec: .95, shin: 100 }),
       ] }));
       this.joints[eye.name] = eye;
     }
 
     const quillDefinitions = [
-      { name: 'upper-left', p: [[-.18, .18, -.28], [-.32, .24, -.52], [-.49, .19, -.82], [-.56, .10, -1.08]], width: .40, depth: .22, taper: .58 },
+      { name: 'upper-left', p: [[-.16, .16, -.28], [-.32, .22, -.52], [-.49, .19, -.82], [-.56, .10, -1.08]], width: .40, depth: .22, taper: .58 },
       { name: 'upper-center', p: [[0, .08, -.20], [0, .36, -.46], [0, .59, -.74], [0, .58, -1.02]], width: .30, depth: .18, taper: .58 },
-      { name: 'upper-right', p: [[.18, .18, -.28], [.32, .24, -.52], [.49, .19, -.82], [.56, .10, -1.08]], width: .40, depth: .22, taper: .58 },
-      { name: 'lower-left', p: [[-.18, -.02, -.34], [-.29, -.10, -.50], [-.43, -.19, -.72], [-.56, -.27, -.88]], width: .34, depth: .18, taper: .76 },
+      { name: 'upper-right', p: [[.16, .16, -.28], [.32, .22, -.52], [.49, .19, -.82], [.56, .10, -1.08]], width: .40, depth: .22, taper: .58 },
+      { name: 'lower-left', p: [[-.18, .04, -.34], [-.29, -.05, -.50], [-.43, -.16, -.72], [-.56, -.27, -.88]], width: .37, depth: .19, taper: .76 },
       { name: 'lower-center', p: [[0, -.075, -.33], [0, -.12, -.49], [0, -.25, -.68], [0, -.34, -.84]], width: .36, depth: .18, taper: .58 },
-      { name: 'lower-right', p: [[.18, -.02, -.34], [.29, -.10, -.50], [.43, -.19, -.72], [.56, -.27, -.88]], width: .34, depth: .18, taper: .76 },
+      { name: 'lower-right', p: [[.18, .04, -.34], [.29, -.05, -.50], [.43, -.16, -.72], [.56, -.27, -.88]], width: .37, depth: .19, taper: .76 },
     ];
     quillDefinitions.forEach((definition, index) => {
       const curve = bez(...definition.p);
