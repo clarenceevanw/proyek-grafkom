@@ -10,6 +10,11 @@ import { createNode, createPart } from '../core/MyObject.js';
 
 const GOLD = [.98, .78, .15];
 const LIGHT = [.55, .85, .45];
+const TRACK_START_Z = -30;
+const TRACK_FINISH_Z = 30;
+const TRACK_LENGTH = TRACK_FINISH_Z - TRACK_START_Z;
+const TRACK_HALF_WIDTH = 3.8;
+const LANE_OFFSET = TRACK_HALF_WIDTH / 3;
 
 export class Environment {
   constructor(gl, resources = {}) {
@@ -44,7 +49,9 @@ export class Environment {
       sphere: upload(makeSphere()),
       torus: upload(makeTorus(.36, .09)),
       quad: upload(makeQuad()),
-      path: upload(makeTube((u) => this.#pathPosition(u), 260, 14, () => 1.25, { closed: true, up: [0, 1, 0], sN: .05, sB: 1 })),
+      path: upload(makeTube((u) => this.#pathPosition(u), 1, 14, () => TRACK_HALF_WIDTH, { up: [0, 1, 0], sN: .03, sB: 1 })),
+      laneLeft: upload(makeTube((u) => this.#lanePosition(TRACK_START_Z + TRACK_LENGTH * u, -LANE_OFFSET), 1, 6, () => .045, { up: [0, 1, 0] })),
+      laneRight: upload(makeTube((u) => this.#lanePosition(TRACK_START_Z + TRACK_LENGTH * u, LANE_OFFSET), 1, 6, () => .045, { up: [0, 1, 0] })),
       trunk: upload(makeTube(bez([0, 0, 0], [.3, 1.7, 0], [.8, 3.4, 0], [.6, 5, 0]), 16, 10, (t) => .3 - .14 * t)),
       leaf: upload(makeTube(bez([0, 0, 0], [1.2, .9, 0], [2.4, .9, 0], [3.4, -.3, 0]), 14, 8, (t) => .04 + .34 * Math.pow(Math.sin(Math.PI * Math.min(1, t * .98 + .02)), .8) * (1 - .3 * t), { up: [0, 1, 0], sN: .12, sB: 1 })),
       stem: upload(makeTube((t) => [0, t * 1.1, 0], 4, 6, () => .03)),
@@ -52,8 +59,11 @@ export class Environment {
   }
 
   #pathPosition(u) {
-    const angle = u * Math.PI * 2;
-    return [10 * Math.cos(angle) + 1.2 * Math.cos(2 * angle), 0, 7 * Math.sin(angle)];
+    return [0, 0, TRACK_START_Z + TRACK_LENGTH * u];
+  }
+
+  #lanePosition(z, offset) {
+    return [offset, .15, z];
   }
 
   #part(mesh, position, scale, color, options = {}) {
@@ -69,11 +79,44 @@ export class Environment {
 
     add(root, node({ parts: [this.#part('quad', [0, 0, 0], [110, 1, 110], [1, 1, 1], { mode: 2, spec: 0 })] }));
     add(root, node({ parts: [this.#part('path', [0, 0, 0], [1, 1, 1], [.86, .72, .44], { spec: .05 })] }));
+    for (const mesh of ['laneLeft', 'laneRight']) {
+      add(root, node({ parts: [this.#part(mesh, [0, 0, 0], [1, 1, 1], [.98, .88, .48], { spec: .12 })] }));
+    }
+    add(root, node({ parts: [this.#part('quad', [0, .14, TRACK_START_Z], [TRACK_HALF_WIDTH, 1, .09], [.96, .96, .94], { spec: .05 })] }));
+    const tileCount = 12;
+    const tileWidth = (TRACK_HALF_WIDTH * 2) / tileCount;
+    for (let row = 0; row < 2; row += 1) {
+      for (let column = 0; column < tileCount; column += 1) {
+        const color = (row + column) % 2 === 0 ? [.04, .04, .05] : [.96, .96, .94];
+        add(root, node({ parts: [this.#part(
+          'quad',
+          [-TRACK_HALF_WIDTH + tileWidth * (column + .5), .14, TRACK_FINISH_Z + (row - .5) * .18],
+          [tileWidth * .5, 1, .09],
+          color,
+          { spec: .05 },
+        )] }));
+      }
+    }
+    const laneOffsets = [-LANE_OFFSET * 2, 0, LANE_OFFSET * 2];
+    laneOffsets.forEach((offset, lane) => {
+      for (const z of [-25, -15, -5, 5, 15, 25]) {
+        const position = this.#lanePosition(z, offset);
+        const station = (z + 25) / 10;
+        const phase = lane * .7 + station * .45;
+        const ring = add(root, node({
+          t: [position[0], .95, position[2]],
+          r: [Math.PI / 2, 0, 0],
+          parts: [this.#part('torus', [0, 0, 0], [1, 1, 1], GOLD, { spec: .9, shin: 60, rim: .3 })],
+        }));
+        this.rings.push({ node: ring, phase });
+      }
+    });
 
     for (let a = 0; a < 12; a += 1) {
       const angle = a * Math.PI * 2 / 12 + .2;
       const radius = 36 + ((a * 7) % 5) * 3;
-      add(root, node({ t: [Math.cos(angle) * radius, -1.5, Math.sin(angle) * radius], parts: [
+      const position = a === 8 ? [-25, -38] : [Math.cos(angle) * radius, Math.sin(angle) * radius];
+      add(root, node({ t: [position[0], -1.5, position[1]], parts: [
         this.#part('sphere', [0, 0, 0], [9 + (a % 3) * 3, 6 + (a % 4) * 2.2, 8], [1, 1, 1], { mode: 3, spec: 0 }),
       ] }));
     }
@@ -82,7 +125,7 @@ export class Environment {
       parts: [this.#part('sphere', [0, 0, 0], [6 + index, 3.6, 5], [1, 1, 1], { mode: 3, spec: 0 })],
     })));
 
-    const palmPositions = [[-2.5, -1.5], [3, 1.8], [-14, 6], [15, -6], [-16, -8], [0, 10.5], [0, -10.5], [17, 7], [-8, 11]];
+    const palmPositions = [[-10, -25], [10, -18], [-10, -11], [10, -4], [-10, 4], [10, 11], [-10, 18], [10, 25], [12, 0]];
     palmPositions.forEach((position, index) => {
       const scale = .9 + (index % 3) * .15;
       const palm = node({ t: [position[0], 0, position[1]], r: [0, this.#random() * Math.PI * 2, 0], s: [scale, scale, scale], parts: [
@@ -102,7 +145,7 @@ export class Environment {
     for (let index = 0; index < 26 && flowers.length < 20; index += 1) {
       const x = (this.#random() - .5) * 40;
       const z = (this.#random() - .5) * 26;
-      if (pathPoints.some((point) => Math.hypot(point[0] - x, point[2] - z) < 2.4)) continue;
+      if (pathPoints.some((point) => Math.hypot(point[0] - x, point[2] - z) < TRACK_HALF_WIDTH + .6)) continue;
       const flower = node({ t: [x, 0, z], r: [0, this.#random() * Math.PI * 2, 0], parts: [
         this.#part('stem', [0, 0, 0], [1, 1, 1], [.15, .55, .15]),
       ] });
@@ -123,15 +166,6 @@ export class Environment {
       add(root, cloud);
     }
 
-    for (let index = 0; index < 24; index += 1) {
-      const u = (index + .5) / 24;
-      const position = this.#pathPosition(u);
-      const ring = node({ t: [position[0], .95, position[2]], r: [Math.PI / 2, 0, 0], parts: [
-        this.#part('torus', [0, 0, 0], [1, 1, 1], GOLD, { spec: .9, shin: 60, rim: .3 }),
-      ] });
-      this.rings.push(ring);
-      add(root, ring);
-    }
     return root;
   }
 
@@ -141,11 +175,9 @@ export class Environment {
     this.palms.forEach((palm) => { palm.node.r[2] = .025 * Math.sin(elapsedTime * .8 + palm.phase); });
     this.flowers.forEach((flower) => { flower.node.r[2] = .07 * Math.sin(elapsedTime * 1.4 + flower.phase); });
     this.clouds.forEach((cloud) => { cloud.node.t[0] = ((cloud.initialX + elapsedTime * cloud.speed + 80) % 160) - 80; });
-    this.rings.forEach((ring, index) => {
-      ring.visible = true;
-      ring.s = [1, 1, 1];
-      ring.aa = { a: [0, 1, 0], ang: elapsedTime * 2.2 + index * .5 };
-      ring.t[1] = .95 + .08 * Math.sin(elapsedTime * 3 + index);
+    this.rings.forEach(({ node: ring, phase }) => {
+      ring.aa = { a: [0, 1, 0], ang: elapsedTime * 2.2 + phase };
+      ring.t[1] = .95 + .08 * Math.sin(elapsedTime * 3 + phase);
     });
     const position = state.shadowPosition || [0, 0, 0];
     this.shadow.t = [position[0], .08, position[2]];

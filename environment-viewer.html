@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Environment Viewer</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #c8eaff; }
+    canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+  </style>
+</head>
+<body>
+  <canvas id="gl" aria-label="Environment Green Hill Zone"></canvas>
+  <script type="module" src="./js/environment-viewer.js"></script>
+</body>
+</html>
