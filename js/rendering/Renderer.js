@@ -57,22 +57,22 @@ export class Renderer {
     for (const [name, value] of Object.entries(uniforms || {})) {
       const location = shaderProgram.uniforms[name];
       if (location === undefined || location === null) continue;
-      this.#setUniform(location, value);
+      this.#setUniform(name, location, value);
     }
   }
 
-  #setUniform(location, value) {
+  #setUniform(name, location, value) {
     const gl = this.gl;
     if (typeof value === 'number') {
       gl.uniform1f(location, value);
-    } else if (value.length === 16) {
+    } else if (value != null && typeof value.length === 'number' && value.length === 16) {
       gl.uniformMatrix4fv(location, false, value);
-    } else if (value.length === 9) {
+    } else if (value != null && typeof value.length === 'number' && value.length === 9) {
       gl.uniformMatrix3fv(location, false, value);
-    } else if (value.length === 3) {
+    } else if (value != null && typeof value.length === 'number' && value.length === 3) {
       gl.uniform3fv(location, value);
     } else {
-      throw new TypeError('Unsupported uniform value shape');
+      throw new TypeError(`Uniform "${name}" must be a number or a vector/matrix of length 3, 9, or 16`);
     }
   }
 }

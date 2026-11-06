@@ -10,6 +10,24 @@ import {
   SONIC_UNIFORMS,
   SONIC_VERTEX_SOURCE,
 } from '../shaders/sonicShader.js';
+import {
+  KNUCKLES_ATTRIBUTE_BINDINGS,
+  KNUCKLES_FRAGMENT_SOURCE,
+  KNUCKLES_UNIFORMS,
+  KNUCKLES_VERTEX_SOURCE,
+} from '../shaders/knucklesShader.js';
+import {
+  TAILS_ATTRIBUTE_BINDINGS,
+  TAILS_FRAGMENT_SOURCE,
+  TAILS_UNIFORMS,
+  TAILS_VERTEX_SOURCE,
+} from '../shaders/tailsShader.js';
+import {
+  ENVIRONMENT_ATTRIBUTE_BINDINGS,
+  ENVIRONMENT_FRAGMENT_SOURCE,
+  ENVIRONMENT_UNIFORMS,
+  ENVIRONMENT_VERTEX_SOURCE,
+} from '../shaders/environmentShader.js';
 
 const START_Z = -32.5;
 const FINISH_Z = 30;
@@ -36,17 +54,35 @@ export class RaceScene {
       attributeBindings: SONIC_ATTRIBUTE_BINDINGS,
       uniformNames: SONIC_UNIFORMS,
     });
+    this.knucklesShader = new ShaderProgram(gl, {
+      vertexSource: KNUCKLES_VERTEX_SOURCE,
+      fragmentSource: KNUCKLES_FRAGMENT_SOURCE,
+      attributeBindings: KNUCKLES_ATTRIBUTE_BINDINGS,
+      uniformNames: KNUCKLES_UNIFORMS,
+    });
+    this.tailsShader = new ShaderProgram(gl, {
+      vertexSource: TAILS_VERTEX_SOURCE,
+      fragmentSource: TAILS_FRAGMENT_SOURCE,
+      attributeBindings: TAILS_ATTRIBUTE_BINDINGS,
+      uniformNames: TAILS_UNIFORMS,
+    });
+    this.environmentShader = new ShaderProgram(gl, {
+      vertexSource: ENVIRONMENT_VERTEX_SOURCE,
+      fragmentSource: ENVIRONMENT_FRAGMENT_SOURCE,
+      attributeBindings: ENVIRONMENT_ATTRIBUTE_BINDINGS,
+      uniformNames: ENVIRONMENT_UNIFORMS,
+    });
 
     this.environment = new Environment(gl, {
       renderer: this.renderer,
-      shader: this.sonicShader,
+      shader: this.environmentShader,
     });
     this.environment.shadow.visible = false;
 
     this.runners = [
       { name: 'Sonic', lane: 'kiri', x: -2 * LANE_X, visualScale: .9, finishTime: SONIC_FINISH_TIME, character: new Sonic(gl, { renderer: this.renderer, shader: this.sonicShader }) },
-      { name: 'Knuckles', lane: 'tengah', x: 0, visualScale: .48, finishTime: KNUCKLES_FINISH_TIME, character: new Knuckles(gl, { renderer: this.renderer }) },
-      { name: 'Tails', lane: 'kanan', x: 2 * LANE_X, visualScale: .78, finishTime: TAILS_FINISH_TIME, character: new Tails(gl, { renderer: this.renderer }) },
+      { name: 'Knuckles', lane: 'tengah', x: 0, visualScale: .48, finishTime: KNUCKLES_FINISH_TIME, character: new Knuckles(gl, { renderer: this.renderer, shader: this.knucklesShader }) },
+      { name: 'Tails', lane: 'kanan', x: 2 * LANE_X, visualScale: .78, finishTime: TAILS_FINISH_TIME, character: new Tails(gl, { renderer: this.renderer, shader: this.tailsShader }) },
     ];
     this.runners.forEach(({ character }) => character.setAnimation('idle'));
     this.runners.forEach((runner) => {

@@ -1,13 +1,6 @@
-import { Matrix4, normalMatrix, normalize3 } from '../core/Matrix4.js';
+import { Matrix4, normalMatrix, normalize3, cross3 } from '../core/Matrix4.js';
 import { MyObject, createPart } from '../core/MyObject.js';
-import { ShaderProgram } from '../rendering/ShaderProgram.js';
-import { Renderer } from '../rendering/Renderer.js';
-import {
-  KNUCKLES_ATTRIBUTE_BINDINGS,
-  KNUCKLES_FRAGMENT_SOURCE,
-  KNUCKLES_UNIFORMS,
-  KNUCKLES_VERTEX_SOURCE,
-} from '../shaders/knucklesShader.js';
+import { evaluateBezier3D, makeParametricSurface, mergeMeshes } from '../core/Geometry.js';
 
 const RED = [.86, .08, .18];
 const TAN = [.87, .66, .47];
@@ -34,84 +27,38 @@ const FA = .5;
 const AR = .1;
 
 const sb = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const cr = (a, b) => [
-  a[1] * b[2] - a[2] * b[1],
-  a[2] * b[0] - a[0] * b[2],
-  a[0] * b[1] - a[1] * b[0],
-];
-const nm = v => {
-  const l = Math.hypot(v[0], v[1], v[2]) || 1;
-  return [v[0] / l, v[1] / l, v[2] / l];
-};
-
-function surf(f, nu, nv) {
-  const P = [], N = [], Ix = [], e = .002;
-  const cl = x => Math.min(1 - e, Math.max(e, x));
-  for (let i = 0; i <= nu; i += 1) {
-    for (let j = 0; j <= nv; j += 1) {
-      const u = i / nu, v = j / nv, p = f(u, v), a = cl(u), b = cl(v);
-      const n = nm(cr(sb(f(a + e, b), f(a - e, b)), sb(f(a, b + e), f(a, b - e))));
-      P.push(p[0], p[1], p[2]);
-      N.push(n[0], n[1], n[2]);
-    }
-  }
-  for (let i = 0; i < nu; i += 1) {
-    for (let j = 0; j < nv; j += 1) {
-      const a = i * (nv + 1) + j, b = a + nv + 1;
-      Ix.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-  }
-  return { P, N, I: Ix };
-}
-
-function mg(...gs) {
-  const r = { P: [], N: [], I: [] };
-  for (const g of gs) {
-    const o = r.P.length / 3;
-    g.P.forEach(x => r.P.push(x));
-    g.N.forEach(x => r.N.push(x));
-    g.I.forEach(i => r.I.push(i + o));
-  }
-  return r;
-}
-
-const ell = (a, b, c) => surf((u, v) => {
+const ell = (a, b, c) => makeParametricSurface((u, v) => {
   const t = u * TAU, p = v * Math.PI;
   return [a * Math.sin(p) * Math.cos(t), b * Math.cos(p), c * Math.sin(p) * Math.sin(t)];
 }, 24, 16);
 
-const epar = (a, b, h) => surf((u, v) => {
+const epar = (a, b, h) => makeParametricSurface((u, v) => {
   const t = u * TAU;
   return [a * v * Math.cos(t), h * (1 - v * v), b * v * Math.sin(t)];
 }, 20, 10);
 
-const disc = (r, y) => surf((u, v) => [r * v * Math.cos(u * TAU), y, r * v * Math.sin(u * TAU)], 20, 2);
+const disc = (r, y) => makeParametricSurface((u, v) => [r * v * Math.cos(u * TAU), y, r * v * Math.sin(u * TAU)], 20, 2);
 
-const cyl = (r, h) => mg(
-  surf((u, v) => [r * Math.cos(u * TAU), (v - .5) * h, r * Math.sin(u * TAU)], 20, 2),
+const cyl = (r, h) => mergeMeshes(
+  makeParametricSurface((u, v) => [r * Math.cos(u * TAU), (v - .5) * h, r * Math.sin(u * TAU)], 20, 2),
   disc(r, h / 2),
   disc(r, -h / 2),
 );
 
-const cone = (r, h) => mg(
-  surf((u, v) => [r * (1 - v) * Math.cos(u * TAU), v * h, r * (1 - v) * Math.sin(u * TAU)], 20, 4),
+const cone = (r, h) => mergeMeshes(
+  makeParametricSurface((u, v) => [r * (1 - v) * Math.cos(u * TAU), v * h, r * (1 - v) * Math.sin(u * TAU)], 20, 4),
   disc(r, 0),
 );
 
-const hpar = (a, b, k) => surf((u, v) => {
+const hpar = (a, b, k) => makeParametricSurface((u, v) => {
   const t = u * TAU, x = a * v * Math.cos(t), z = b * v * Math.sin(t);
   return [x, k * (x * x / a / a - z * z / b / b), z];
 }, 24, 8);
 
-const bz = (p, t) => {
-  const s = 1 - t;
-  return [0, 1, 2].map(i => s * s * s * p[0][i] + 3 * s * s * t * p[1][i] + 3 * s * t * t * p[2][i] + t * t * t * p[3][i]);
-};
-
-const tube = (p, r0, r1, ref) => surf((u, v) => {
-  const c = bz(p, v);
-  const T = nm(sb(bz(p, Math.min(1, v + .002)), bz(p, Math.max(0, v - .002))));
-  const N = nm(cr(T, ref)), B = cr(T, N);
+const tube = (p, r0, r1, ref) => makeParametricSurface((u, v) => {
+  const c = evaluateBezier3D(p, v);
+  const T = normalize3(sb(evaluateBezier3D(p, Math.min(1, v + .002)), evaluateBezier3D(p, Math.max(0, v - .002))));
+  const N = normalize3(cross3(T, ref)), B = cross3(T, N);
   const r = (r0 + (r1 - r0) * v) * Math.min(1, Math.sqrt(v * 14), Math.sqrt((1 - v) * 14));
   const a = u * TAU;
   return [0, 1, 2].map(i => c[i] + r * (N[i] * Math.cos(a) + B[i] * Math.sin(a)));
@@ -119,7 +66,7 @@ const tube = (p, r0, r1, ref) => surf((u, v) => {
 
 const crescent = (R, A, hw, yb, lift) => {
   const cy = yb + R;
-  return surf((u, v) => {
+  return makeParametricSurface((u, v) => {
     const a = (u * 2 - 1) * A;
     const w = hw * Math.pow(Math.max(0, Math.cos(a / A * PI / 2)), .7) * (v * 2 - 1);
     const rr = R + w;
@@ -139,7 +86,7 @@ const lockMesh = (x, a0, a1, len, w, th) => {
   const k = 4 / 3 * Math.tan((a1 - a0) / 4);
   const p0 = P(a0), p3 = P(a1), d0 = dP(a0), d1 = dP(a1);
   const c1 = [p0, p0.map((v, i) => v + k * d0[i]), p3.map((v, i) => v - k * d1[i]), p3];
-  const T1 = nm(d1.map(v => -v));
+  const T1 = normalize3(d1.map(v => -v));
   const tip = [p3[0] + x * .2, p3[1] - len, p3[2] - len * .3];
   const c2 = [
     p3,
@@ -147,12 +94,12 @@ const lockMesh = (x, a0, a1, len, w, th) => {
     [tip[0], tip[1] + len * .45, tip[2] + len * .12],
     tip,
   ];
-  const C = v => v < .5 ? bz(c1, v * 2) : bz(c2, v * 2 - 1);
-  return surf((u, v) => {
+  const C = v => v < .5 ? evaluateBezier3D(c1, v * 2) : evaluateBezier3D(c2, v * 2 - 1);
+  return makeParametricSurface((u, v) => {
     const c = C(v);
-    const T = nm(sb(C(Math.min(1, v + .002)), C(Math.max(0, v - .002))));
-    const Bv = nm(sb([1, 0, 0], T.map(q => q * T[0])));
-    const N = cr(Bv, T);
+    const T = normalize3(sb(C(Math.min(1, v + .002)), C(Math.max(0, v - .002))));
+    const Bv = normalize3(sb([1, 0, 0], T.map(q => q * T[0])));
+    const N = cross3(Bv, T);
     const e1 = Math.sin(Math.min(1, v / .12) * PI / 2);
     const q = Math.max(0, (v - .5) / .5);
     const pf = e1 * Math.pow(1 - q, .75);
@@ -161,30 +108,16 @@ const lockMesh = (x, a0, a1, len, w, th) => {
   }, 16, 64);
 };
 
-function toUploadableMesh(g) {
-  return {
-    p: new Float32Array(g.P),
-    n: new Float32Array(g.N),
-    i: new Uint16Array(g.I),
-    c: g.I.length,
-  };
-}
-
 const sgn = x => x ? Math.sign(x) : 1;
 
 export class Knuckles {
   constructor(gl, resources = {}) {
-    if (!gl) {
-      throw new Error('Knuckles requires an active WebGL context');
+    if (!gl || !resources.renderer || !resources.shader) {
+      throw new Error('Knuckles requires gl, renderer, and shader resources');
     }
     this.gl = gl;
-    this.renderer = resources.renderer || new Renderer(gl);
-    this.shader = resources.shader || new ShaderProgram(gl, {
-      vertexSource: KNUCKLES_VERTEX_SOURCE,
-      fragmentSource: KNUCKLES_FRAGMENT_SOURCE,
-      attributeBindings: KNUCKLES_ATTRIBUTE_BINDINGS,
-      uniformNames: KNUCKLES_UNIFORMS,
-    });
+    this.renderer = resources.renderer;
+    this.shader = resources.shader;
 
     this.joints = {};
     this.quills = [];
@@ -201,7 +134,7 @@ export class Knuckles {
   }
 
   #upload(g) {
-    return this.renderer.uploadMesh(toUploadableMesh(g));
+    return this.renderer.uploadMesh(g);
   }
 
   #buildHierarchy() {

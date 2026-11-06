@@ -1,13 +1,13 @@
 import { Matrix4, normalMatrix, normalize3, cross3, dot3 } from '../core/Matrix4.js';
 import { createNode, createPart } from '../core/MyObject.js';
-import { ShaderProgram } from '../rendering/ShaderProgram.js';
-import { Renderer } from '../rendering/Renderer.js';
 import {
-  TAILS_ATTRIBUTE_BINDINGS,
-  TAILS_FRAGMENT_SOURCE,
-  TAILS_UNIFORMS,
-  TAILS_VERTEX_SOURCE,
-} from '../shaders/tailsShader.js';
+  bezierDerivative3D,
+  evaluateBezier3D,
+  makeCone,
+  makeCylinder,
+  makeParaboloid,
+  makeSphere,
+} from '../core/Geometry.js';
 
 // Color palette matching the reference implementation
 export const COL = {
@@ -27,147 +27,6 @@ export const COL = {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /* ---------------------------- Geometry Generators ---------------------------- */
-
-function genSphere(seg = 32, ring = 20) {
-  const pos = [], nor = [], idx = [];
-  for (let i = 0; i <= ring; i++) {
-    const th = (i / ring) * Math.PI;
-    const sinTh = Math.sin(th), cosTh = Math.cos(th);
-    for (let j = 0; j <= seg; j++) {
-      const ph = (j / seg) * Math.PI * 2;
-      const x = sinTh * Math.cos(ph), y = cosTh, z = sinTh * Math.sin(ph);
-      pos.push(x, y, z);
-      nor.push(x, y, z);
-    }
-  }
-  for (let i = 0; i < ring; i++) {
-    for (let j = 0; j < seg; j++) {
-      const a = i * (seg + 1) + j, b = a + seg + 1;
-      idx.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-  }
-  return {
-    p: new Float32Array(pos),
-    n: new Float32Array(nor),
-    i: new Uint16Array(idx),
-    c: idx.length,
-  };
-}
-
-function genCylinder(seg = 32, bevel = 0.0) {
-  const pos = [], nor = [], idx = [];
-  const profile = bevel > 0 ? [
-    [-0.5, 1 - bevel, 0, -1],
-    [-0.5 + bevel * 0.8, 1, 1, -0.35],
-    [0.0, 1 + bevel * 0.16, 1, 0.0],
-    [0.5 - bevel * 0.8, 1, 1, 0.35],
-    [0.5, 1 - bevel, 0, 1],
-  ] : [[-0.5, 1, 1, 0], [0.5, 1, 1, 0]];
-
-  for (let i = 0; i < profile.length; i++) {
-    const [y, rad, nr, ny] = profile[i];
-    for (let j = 0; j <= seg; j++) {
-      const u = (j / seg) * Math.PI * 2;
-      const cu = Math.cos(u), su = Math.sin(u);
-      pos.push(cu * rad, y, su * rad);
-      const n = normalize3([cu * nr, ny, su * nr]);
-      nor.push(n[0], n[1], n[2]);
-    }
-  }
-  for (let i = 0; i < profile.length - 1; i++) {
-    for (let j = 0; j < seg; j++) {
-      const a = i * (seg + 1) + j, b = a + seg + 1;
-      idx.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-  }
-  for (const side of [-1, 1]) {
-    const c0 = pos.length / 3;
-    const rad = bevel > 0 ? 1 - bevel : 1;
-    pos.push(0, side * 0.5, 0);
-    nor.push(0, side, 0);
-    for (let j = 0; j <= seg; j++) {
-      const u = (j / seg) * Math.PI * 2;
-      pos.push(Math.cos(u) * rad, side * 0.5, Math.sin(u) * rad);
-      nor.push(0, side, 0);
-    }
-    for (let j = 0; j < seg; j++) {
-      if (side > 0) idx.push(c0, c0 + 1 + j + 1, c0 + 1 + j);
-      else idx.push(c0, c0 + 1 + j, c0 + 1 + j + 1);
-    }
-  }
-  return {
-    p: new Float32Array(pos),
-    n: new Float32Array(nor),
-    i: new Uint16Array(idx),
-    c: idx.length,
-  };
-}
-
-function genEllipticCone(seg = 32, rings = 16) {
-  const pos = [], nor = [], idx = [];
-  for (let i = 0; i <= rings; i++) {
-    const v = i / rings, r = 1 - v;
-    for (let j = 0; j <= seg; j++) {
-      const u = (j / seg) * Math.PI * 2;
-      const cu = Math.cos(u), su = Math.sin(u);
-      pos.push(r * cu, v, r * su);
-      const n = normalize3([cu, 1.0, su]);
-      nor.push(n[0], n[1], n[2]);
-    }
-  }
-  for (let i = 0; i < rings; i++) {
-    for (let j = 0; j < seg; j++) {
-      const a = i * (seg + 1) + j, b = a + seg + 1;
-      idx.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-  }
-  const c0 = pos.length / 3;
-  pos.push(0, 0, 0); nor.push(0, -1, 0);
-  for (let j = 0; j <= seg; j++) {
-    const u = (j / seg) * Math.PI * 2;
-    pos.push(Math.cos(u), 0, Math.sin(u)); nor.push(0, -1, 0);
-  }
-  for (let j = 0; j < seg; j++) idx.push(c0, c0 + 1 + j + 1, c0 + 1 + j);
-  return {
-    p: new Float32Array(pos),
-    n: new Float32Array(nor),
-    i: new Uint16Array(idx),
-    c: idx.length,
-  };
-}
-
-function genParaboloid(seg = 32, rings = 16) {
-  const pos = [], nor = [], idx = [];
-  for (let i = 0; i <= rings; i++) {
-    const v = i / rings, r = Math.sqrt(Math.max(0, 1 - v));
-    for (let j = 0; j <= seg; j++) {
-      const u = (j / seg) * Math.PI * 2;
-      const x = r * Math.cos(u), z = r * Math.sin(u);
-      pos.push(x, v, z);
-      const n = normalize3([2 * x, 1, 2 * z]);
-      nor.push(n[0], n[1], n[2]);
-    }
-  }
-  for (let i = 0; i < rings; i++) {
-    for (let j = 0; j < seg; j++) {
-      const a = i * (seg + 1) + j, b = a + seg + 1;
-      idx.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-  }
-  const c0 = pos.length / 3;
-  pos.push(0, 0, 0); nor.push(0, -1, 0);
-  for (let j = 0; j <= seg; j++) {
-    const u = (j / seg) * Math.PI * 2;
-    pos.push(Math.cos(u), 0, Math.sin(u)); nor.push(0, -1, 0);
-  }
-  for (let j = 0; j < seg; j++) idx.push(c0, c0 + 1 + j + 1, c0 + 1 + j);
-  return {
-    p: new Float32Array(pos),
-    n: new Float32Array(nor),
-    i: new Uint16Array(idx),
-    c: idx.length,
-  };
-}
 
 function genHyperboloid1Sheet(seg = 32, rings = 16, waist = 0.72) {
   const pos = [], nor = [], idx = [];
@@ -196,39 +55,14 @@ function genHyperboloid1Sheet(seg = 32, rings = 16, waist = 0.72) {
   };
 }
 
-function bez(P, t) {
-  const u = 1 - t;
-  const a = u * u * u;
-  const b = 3 * u * u * t;
-  const c = 3 * u * t * t;
-  const d = t * t * t;
-  return [
-    a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0],
-    a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1],
-    a * P[0][2] + b * P[1][2] + c * P[2][2] + d * P[3][2],
-  ];
-}
-
-function bezD(P, t) {
-  const u = 1 - t;
-  const a = 3 * u * u;
-  const b = 6 * u * t;
-  const c = 3 * t * t;
-  return [
-    a * (P[1][0] - P[0][0]) + b * (P[2][0] - P[1][0]) + c * (P[3][0] - P[2][0]),
-    a * (P[1][1] - P[0][1]) + b * (P[2][1] - P[1][1]) + c * (P[3][1] - P[2][1]),
-    a * (P[1][2] - P[0][2]) + b * (P[2][2] - P[1][2]) + c * (P[3][2] - P[2][2]),
-  ];
-}
-
 function genBezierTube(P, radiusFn, nu = 36, nv = 16, tMin = 0, tMax = 1) {
   const pos = [], nor = [], idx = [];
-  let initT = normalize3(bezD(P, 0));
+  let initT = normalize3(bezierDerivative3D(P, 0));
   let upVec = Math.abs(initT[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0];
   let N = normalize3(cross3(initT, upVec));
   for (let i = 0; i <= nu; i++) {
     const t = tMin + (i / nu) * (tMax - tMin);
-    const c = bez(P, t), d = bezD(P, t);
+    const c = evaluateBezier3D(P, t), d = bezierDerivative3D(P, t);
     const len = Math.hypot(d[0], d[1], d[2]) || 1;
     const T = [d[0] / len, d[1] / len, d[2] / len];
     const dn = dot3(N, T);
@@ -263,23 +97,20 @@ function genBezierTube(P, radiusFn, nu = 36, nv = 16, tMin = 0, tMax = 1) {
 
 export class Tails {
   constructor(gl, resources = {}) {
-    if (!gl) throw new Error('Tails requires an existing WebGL context');
+    if (!gl || !resources.renderer || !resources.shader) {
+      throw new Error('Tails requires gl, renderer, and shader resources');
+    }
     this.gl = gl;
-    this.renderer = resources.renderer || new Renderer(gl);
-    this.shader = resources.shader || new ShaderProgram(gl, {
-      vertexSource: TAILS_VERTEX_SOURCE,
-      fragmentSource: TAILS_FRAGMENT_SOURCE,
-      attributeBindings: TAILS_ATTRIBUTE_BINDINGS,
-      uniformNames: TAILS_UNIFORMS,
-    });
+    this.renderer = resources.renderer;
+    this.shader = resources.shader;
 
     const upload = (mesh) => this.renderer.uploadMesh(mesh);
     this.mesh = {
-      sphere: upload(genSphere(32, 20)),
-      cylinder: upload(genCylinder(32, 0.0)),
-      cylinderCuff: upload(genCylinder(32, 0.30)),
-      cone: upload(genEllipticCone(32, 16)),
-      paraboloid: upload(genParaboloid(32, 16)),
+      sphere: upload(makeSphere(32, 20)),
+      cylinder: upload(makeCylinder(32, { centered: true })),
+      cylinderCuff: upload(makeCylinder(32, { centered: true, bevel: 0.30 })),
+      cone: upload(makeCone(32, 16)),
+      paraboloid: upload(makeParaboloid(32, 16, { baseFirst: true })),
       hyperboloid: upload(genHyperboloid1Sheet(32, 16, 0.72)),
     };
 
@@ -520,7 +351,7 @@ export class Tails {
         { t: 0.86, ang: 0.2,  sc: [0.052, 0.26, 0.042] },
         { t: 0.91, ang: 3.1,  sc: [0.048, 0.23, 0.040] },
       ].forEach((sp) => {
-        const c = bez(P, sp.t), T = normalize3(bezD(P, sp.t));
+        const c = evaluateBezier3D(P, sp.t), T = normalize3(bezierDerivative3D(P, sp.t));
         const side = normalize3(cross3(T, [0, 1, 0])), up = cross3(side, T);
         const r = tailRadius(sp.t) * 0.72;
         const off = [

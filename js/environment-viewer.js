@@ -2,11 +2,11 @@ import { Matrix4 } from './core/Matrix4.js';
 import { Renderer } from './rendering/Renderer.js';
 import { ShaderProgram } from './rendering/ShaderProgram.js';
 import {
-  SONIC_ATTRIBUTE_BINDINGS,
-  SONIC_FRAGMENT_SOURCE,
-  SONIC_UNIFORMS,
-  SONIC_VERTEX_SOURCE,
-} from './shaders/sonicShader.js';
+  ENVIRONMENT_ATTRIBUTE_BINDINGS,
+  ENVIRONMENT_FRAGMENT_SOURCE,
+  ENVIRONMENT_UNIFORMS,
+  ENVIRONMENT_VERTEX_SOURCE,
+} from './shaders/environmentShader.js';
 import { Environment } from './environment/Environment.js';
 
 const canvas = document.getElementById('gl');
@@ -15,10 +15,10 @@ if (!gl) throw new Error('WebGL tidak tersedia');
 
 const renderer = new Renderer(gl);
 const shader = new ShaderProgram(gl, {
-  vertexSource: SONIC_VERTEX_SOURCE,
-  fragmentSource: SONIC_FRAGMENT_SOURCE,
-  attributeBindings: SONIC_ATTRIBUTE_BINDINGS,
-  uniformNames: SONIC_UNIFORMS,
+  vertexSource: ENVIRONMENT_VERTEX_SOURCE,
+  fragmentSource: ENVIRONMENT_FRAGMENT_SOURCE,
+  attributeBindings: ENVIRONMENT_ATTRIBUTE_BINDINGS,
+  uniformNames: ENVIRONMENT_UNIFORMS,
 });
 const environment = new Environment(gl, { renderer, shader });
 environment.shadow.visible = false;

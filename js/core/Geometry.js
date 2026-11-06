@@ -15,12 +15,82 @@ function cross3(a, b) {
 
 // CPU mesh descriptor matching the baseline's p/n/i/c fields before GPU upload.
 export function mkMesh(pos, nor, idx) {
+  const vertexCount = pos.length / 3;
+  if (pos.length % 3 !== 0 || nor.length !== pos.length) {
+    throw new RangeError('Mesh positions and normals must contain matching xyz triples');
+  }
+  if (vertexCount > 0x10000 || idx.some((index) => !Number.isInteger(index) || index < 0 || index >= vertexCount)) {
+    throw new RangeError('Mesh indices must reference vertices within the Uint16 range');
+  }
   return {
     p: new Float32Array(pos),
     n: new Float32Array(nor),
     i: new Uint16Array(idx),
     c: idx.length,
   };
+}
+
+export function mergeMeshes(...meshes) {
+  const positions = [];
+  const normals = [];
+  const indices = [];
+  for (const mesh of meshes) {
+    const offset = positions.length / 3;
+    for (const value of mesh.p) positions.push(value);
+    for (const value of mesh.n) normals.push(value);
+    for (const index of mesh.i) indices.push(index + offset);
+  }
+  return mkMesh(positions, normals, indices);
+}
+
+export function makeParametricSurface(sample, uSegments, vSegments) {
+  const positions = [];
+  const normals = [];
+  const indices = [];
+  const epsilon = .002;
+  const clampSample = (value) => Math.min(1 - epsilon, Math.max(epsilon, value));
+  const subtract = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+
+  for (let i = 0; i <= uSegments; i += 1) {
+    for (let j = 0; j <= vSegments; j += 1) {
+      const u = i / uSegments;
+      const v = j / vSegments;
+      const point = sample(u, v);
+      const cu = clampSample(u);
+      const cv = clampSample(v);
+      const normal = normalize3(cross3(
+        subtract(sample(cu + epsilon, cv), sample(cu - epsilon, cv)),
+        subtract(sample(cu, cv + epsilon), sample(cu, cv - epsilon)),
+      ));
+      positions.push(point[0], point[1], point[2]);
+      normals.push(normal[0], normal[1], normal[2]);
+    }
+  }
+  grid(indices, uSegments, vSegments);
+  return mkMesh(positions, normals, indices);
+}
+
+export function evaluateBezier3D(points, t) {
+  const u = 1 - t;
+  const a = u * u * u;
+  const b = 3 * u * u * t;
+  const c = 3 * u * t * t;
+  const d = t * t * t;
+  return [0, 1, 2].map((axis) => (
+    a * points[0][axis] + b * points[1][axis] + c * points[2][axis] + d * points[3][axis]
+  ));
+}
+
+export function bezierDerivative3D(points, t) {
+  const u = 1 - t;
+  const a = 3 * u * u;
+  const b = 6 * u * t;
+  const c = 3 * t * t;
+  return [0, 1, 2].map((axis) => (
+    a * (points[1][axis] - points[0][axis])
+      + b * (points[2][axis] - points[1][axis])
+      + c * (points[3][axis] - points[2][axis])
+  ));
 }
 
 function grid(indexes, rows, columns) {
@@ -54,10 +124,37 @@ export function makeSphere(sl = 36, st = 24) {
 }
 
 // Unit elliptic cone: base at y=0 and sharp point at y=1.
-export function makeCone(seg = 28) {
+export function makeCone(seg = 28, rings = 1) {
   const pos = [];
   const nor = [];
   const idx = [];
+  if (rings > 1) {
+    for (let i = 0; i <= rings; i += 1) {
+      const v = i / rings;
+      const radius = 1 - v;
+      for (let j = 0; j <= seg; j += 1) {
+        const angle = (j / seg) * TAU;
+        const cosine = Math.cos(angle);
+        const sine = Math.sin(angle);
+        pos.push(radius * cosine, v, radius * sine);
+        const normal = normalize3([cosine, 1, sine]);
+        nor.push(normal[0], normal[1], normal[2]);
+      }
+    }
+    grid(idx, rings, seg);
+    const center = pos.length / 3;
+    pos.push(0, 0, 0);
+    nor.push(0, -1, 0);
+    for (let j = 0; j <= seg; j += 1) {
+      const angle = (j / seg) * TAU;
+      pos.push(Math.cos(angle), 0, Math.sin(angle));
+      nor.push(0, -1, 0);
+    }
+    for (let j = 0; j < seg; j += 1) {
+      idx.push(center, center + j + 2, center + j + 1);
+    }
+    return mkMesh(pos, nor, idx);
+  }
   const k = Math.SQRT1_2;
   for (let j = 0; j <= seg; j += 1) {
     const angle = (j / seg) * TAU;
@@ -85,13 +182,15 @@ export function makeCone(seg = 28) {
 }
 
 // Unit elliptic paraboloid with a rounded dome at y=1 and flat base at y=0.
-export function makeParaboloid(seg = 28, rows = 14) {
+export function makeParaboloid(seg = 28, rows = 14, options = {}) {
   const pos = [];
   const nor = [];
   const idx = [];
+  const baseFirst = !!options.baseFirst;
   for (let i = 0; i <= rows; i += 1) {
-    const radius = i / rows;
-    const y = 1 - radius * radius;
+    const progress = i / rows;
+    const radius = baseFirst ? Math.sqrt(1 - progress) : progress;
+    const y = baseFirst ? progress : 1 - radius * radius;
     for (let j = 0; j <= seg; j += 1) {
       const angle = (j / seg) * TAU;
       const cosine = Math.cos(angle);
@@ -111,16 +210,61 @@ export function makeParaboloid(seg = 28, rows = 14) {
     nor.push(0, -1, 0);
   }
   for (let j = 0; j < seg; j += 1) {
-    idx.push(center, center + 1 + j, center + 2 + j);
+    if (baseFirst) idx.push(center, center + 2 + j, center + 1 + j);
+    else idx.push(center, center + 1 + j, center + 2 + j);
   }
   return mkMesh(pos, nor, idx);
 }
 
 // Unit cylinder from y=-1 to y=0, including both caps.
-export function makeCylinder(seg = 28) {
+export function makeCylinder(seg = 28, options = {}) {
   const pos = [];
   const nor = [];
   const idx = [];
+  if (options.centered) {
+    const bevel = options.bevel || 0;
+    const profile = bevel > 0 ? [
+      [-0.5, 1 - bevel, 0, -1],
+      [-0.5 + bevel * 0.8, 1, 1, -0.35],
+      [0, 1 + bevel * 0.16, 1, 0],
+      [0.5 - bevel * 0.8, 1, 1, 0.35],
+      [0.5, 1 - bevel, 0, 1],
+    ] : [[-0.5, 1, 1, 0], [0.5, 1, 1, 0]];
+
+    for (const [y, radius, radialNormal, verticalNormal] of profile) {
+      for (let j = 0; j <= seg; j += 1) {
+        const angle = (j / seg) * TAU;
+        const cosine = Math.cos(angle);
+        const sine = Math.sin(angle);
+        pos.push(cosine * radius, y, sine * radius);
+        const normal = normalize3([cosine * radialNormal, verticalNormal, sine * radialNormal]);
+        nor.push(normal[0], normal[1], normal[2]);
+      }
+    }
+    for (let i = 0; i < profile.length - 1; i += 1) {
+      for (let j = 0; j < seg; j += 1) {
+        const a = i * (seg + 1) + j;
+        const b = a + seg + 1;
+        idx.push(a, b, a + 1, b, b + 1, a + 1);
+      }
+    }
+    for (const side of [-1, 1]) {
+      const center = pos.length / 3;
+      const radius = bevel > 0 ? 1 - bevel : 1;
+      pos.push(0, side * 0.5, 0);
+      nor.push(0, side, 0);
+      for (let j = 0; j <= seg; j += 1) {
+        const angle = (j / seg) * TAU;
+        pos.push(Math.cos(angle) * radius, side * 0.5, Math.sin(angle) * radius);
+        nor.push(0, side, 0);
+      }
+      for (let j = 0; j < seg; j += 1) {
+        if (side > 0) idx.push(center, center + j + 2, center + j + 1);
+        else idx.push(center, center + j + 1, center + j + 2);
+      }
+    }
+    return mkMesh(pos, nor, idx);
+  }
   for (let j = 0; j <= seg; j += 1) {
     const angle = (j / seg) * TAU;
     const cosine = Math.cos(angle);
@@ -179,17 +323,9 @@ export function makeQuad() {
 
 // Cubic 3D Bezier curve with the same parameter orientation as the baseline.
 export function bez(p0, p1, p2, p3) {
+  const points = [p0, p1, p2, p3];
   return (t) => {
-    const u = 1 - t;
-    const a = u * u * u;
-    const b = 3 * u * u * t;
-    const c = 3 * u * t * t;
-    const d = t * t * t;
-    return [
-      a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
-      a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
-      a * p0[2] + b * p1[2] + c * p2[2] + d * p3[2],
-    ];
+    return evaluateBezier3D(points, t);
   };
 }
 
