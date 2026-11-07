@@ -1,12 +1,15 @@
-// Sonic shader source kept equivalent to reference/sonic_webgl_v2.html.
+// Shader Sonic (sama dengan reference/sonic_webgl_v2.html).
+// Lighting: diffuse + specular Blinn-Phong + rim light + fog.
+// uMode memilih material khusus: 1 = langit, 2 = rumput kotak-kotak,
+// 3 = bukit tanah/rumput, 4 = bayangan hitam transparan, 5 = warna polos.
 
-export const SONIC_VERTEX_SOURCE = `
+const VERTEX_SOURCE = `
 attribute vec3 aPos; attribute vec3 aNor;
 uniform mat4 uModel,uView,uProj; uniform mat3 uNorm;
 varying vec3 vN,vW;
 void main(){ vec4 w=uModel*vec4(aPos,1.0); vW=w.xyz; vN=uNorm*aNor; gl_Position=uProj*uView*w; }`;
 
-export const SONIC_FRAGMENT_SOURCE = `
+const FRAGMENT_SOURCE = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
@@ -48,13 +51,10 @@ void main(){
   gl_FragColor=vec4(c,uAlpha);
 }`;
 
-export const SONIC_ATTRIBUTE_BINDINGS = {
-  aPos: 0,
-  aNor: 1,
+// Konfigurasi untuk `new ShaderProgram(gl, SONIC_SHADER)`.
+export const SONIC_SHADER = {
+  vertexSource: VERTEX_SOURCE,
+  fragmentSource: FRAGMENT_SOURCE,
+  attributeBindings: { aPos: 0, aNor: 1 },
+  uniformNames: ['uModel', 'uView', 'uProj', 'uNorm', 'uColor', 'uCam', 'uLight', 'uMode', 'uSpec', 'uShin', 'uRim', 'uAlpha'],
 };
-
-export const SONIC_UNIFORMS = [
-  'uModel', 'uView', 'uProj', 'uNorm',
-  'uColor', 'uCam', 'uLight', 'uMode',
-  'uSpec', 'uShin', 'uRim', 'uAlpha',
-];
