@@ -1,93 +1,52 @@
+import { clamp01 } from '../core/MathUtils.js';
 import { Renderer } from '../rendering/Renderer.js';
 import { ShaderProgram } from '../rendering/ShaderProgram.js';
 import { Sonic } from '../characters/Sonic.js';
 import { Knuckles } from '../characters/Knuckles.js';
 import { Tails } from '../characters/Tails.js';
 import { Environment } from '../environment/Environment.js';
-import {
-  SONIC_ATTRIBUTE_BINDINGS,
-  SONIC_FRAGMENT_SOURCE,
-  SONIC_UNIFORMS,
-  SONIC_VERTEX_SOURCE,
-} from '../shaders/sonicShader.js';
-import {
-  KNUCKLES_ATTRIBUTE_BINDINGS,
-  KNUCKLES_FRAGMENT_SOURCE,
-  KNUCKLES_UNIFORMS,
-  KNUCKLES_VERTEX_SOURCE,
-} from '../shaders/knucklesShader.js';
-import {
-  TAILS_ATTRIBUTE_BINDINGS,
-  TAILS_FRAGMENT_SOURCE,
-  TAILS_UNIFORMS,
-  TAILS_VERTEX_SOURCE,
-} from '../shaders/tailsShader.js';
-import {
-  ENVIRONMENT_ATTRIBUTE_BINDINGS,
-  ENVIRONMENT_FRAGMENT_SOURCE,
-  ENVIRONMENT_UNIFORMS,
-  ENVIRONMENT_VERTEX_SOURCE,
-} from '../shaders/environmentShader.js';
+import { SONIC_SHADER } from '../shaders/sonicShader.js';
+import { KNUCKLES_SHADER } from '../shaders/knucklesShader.js';
+import { TAILS_SHADER } from '../shaders/tailsShader.js';
+import { ENVIRONMENT_SHADER } from '../shaders/environmentShader.js';
 
 const START_Z = -32.5;
 const FINISH_Z = 30;
 const LANE_X = 3.8 / 3;
+// Sonic: lari sebentar (translate), lalu menggulung jadi bola (rotate) sampai finish.
 const SONIC_RUN_IN_END = 1.2;
 const SONIC_FINISH_TIME = 8;
 const SONIC_BALL_END = SONIC_FINISH_TIME;
 const TAILS_FINISH_TIME = 10;
 const KNUCKLES_FINISH_TIME = 12;
-function clamp01(value) {
-  return Math.max(0, Math.min(1, value));
-}
 
+// Scene balapan: environment + tiga karakter di lajur masing-masing.
+// Setiap karakter tetap memakai shader-nya sendiri dalam satu WebGL context.
 export class RaceScene {
   constructor(gl) {
     if (!gl) throw new Error('RaceScene requires a WebGL context');
 
     this.gl = gl;
     this.renderer = new Renderer(gl);
-    this.sonicShader = new ShaderProgram(gl, {
-      vertexSource: SONIC_VERTEX_SOURCE,
-      fragmentSource: SONIC_FRAGMENT_SOURCE,
-      attributeBindings: SONIC_ATTRIBUTE_BINDINGS,
-      uniformNames: SONIC_UNIFORMS,
-    });
-    this.knucklesShader = new ShaderProgram(gl, {
-      vertexSource: KNUCKLES_VERTEX_SOURCE,
-      fragmentSource: KNUCKLES_FRAGMENT_SOURCE,
-      attributeBindings: KNUCKLES_ATTRIBUTE_BINDINGS,
-      uniformNames: KNUCKLES_UNIFORMS,
-    });
-    this.tailsShader = new ShaderProgram(gl, {
-      vertexSource: TAILS_VERTEX_SOURCE,
-      fragmentSource: TAILS_FRAGMENT_SOURCE,
-      attributeBindings: TAILS_ATTRIBUTE_BINDINGS,
-      uniformNames: TAILS_UNIFORMS,
-    });
-    this.environmentShader = new ShaderProgram(gl, {
-      vertexSource: ENVIRONMENT_VERTEX_SOURCE,
-      fragmentSource: ENVIRONMENT_FRAGMENT_SOURCE,
-      attributeBindings: ENVIRONMENT_ATTRIBUTE_BINDINGS,
-      uniformNames: ENVIRONMENT_UNIFORMS,
-    });
+    const sonicShader = new ShaderProgram(gl, SONIC_SHADER);
+    const knucklesShader = new ShaderProgram(gl, KNUCKLES_SHADER);
+    const tailsShader = new ShaderProgram(gl, TAILS_SHADER);
+    const environmentShader = new ShaderProgram(gl, ENVIRONMENT_SHADER);
 
-    this.environment = new Environment(gl, {
-      renderer: this.renderer,
-      shader: this.environmentShader,
-    });
-    this.environment.shadow.visible = false;
+    this.environment = new Environment(gl, { renderer: this.renderer, shader: environmentShader });
 
+    // x = posisi lajur, visualScale = penyamaan tinggi antar karakter,
+    // raceMode = animasi saat balapan (Sonic punya urutan khusus).
     this.runners = [
-      { name: 'Sonic', lane: 'kiri', x: -2 * LANE_X, visualScale: .9, finishTime: SONIC_FINISH_TIME, character: new Sonic(gl, { renderer: this.renderer, shader: this.sonicShader }) },
-      { name: 'Knuckles', lane: 'tengah', x: 0, visualScale: .48, finishTime: KNUCKLES_FINISH_TIME, character: new Knuckles(gl, { renderer: this.renderer, shader: this.knucklesShader }) },
-      { name: 'Tails', lane: 'kanan', x: 2 * LANE_X, visualScale: .78, finishTime: TAILS_FINISH_TIME, character: new Tails(gl, { renderer: this.renderer, shader: this.tailsShader }) },
+      { name: 'Sonic', lane: 'kiri', x: -2 * LANE_X, visualScale: .9, finishTime: SONIC_FINISH_TIME, raceMode: null, character: new Sonic(gl, { renderer: this.renderer, shader: sonicShader }) },
+      { name: 'Knuckles', lane: 'tengah', x: 0, visualScale: .48, finishTime: KNUCKLES_FINISH_TIME, raceMode: 'run', character: new Knuckles(gl, { renderer: this.renderer, shader: knucklesShader }) },
+      { name: 'Tails', lane: 'kanan', x: 2 * LANE_X, visualScale: .78, finishTime: TAILS_FINISH_TIME, raceMode: 'fly', character: new Tails(gl, { renderer: this.renderer, shader: tailsShader }) },
     ];
-    this.runners.forEach(({ character }) => character.setAnimation('idle'));
-    this.runners.forEach((runner) => {
+    for (const runner of this.runners) {
+      runner.character.setAnimation('idle');
       runner.mode = 'idle';
       runner.appliedZ = START_Z;
-    });
+    }
     this.hasAppliedLineup = false;
     this.raceRequested = false;
     this.raceStartedAt = null;
@@ -99,6 +58,7 @@ export class RaceScene {
     return true;
   }
 
+  // Kembalikan semua karakter ke garis start. Tidak bisa setelah balapan dimulai.
   resetToLineup() {
     if (this.raceRequested) return false;
     for (const runner of this.runners) {
@@ -114,57 +74,56 @@ export class RaceScene {
   update(dt, elapsedTime) {
     this.environment.update(elapsedTime);
     if (this.raceRequested && this.raceStartedAt === null) this.raceStartedAt = elapsedTime;
-    const raceTime = this.raceStartedAt === null ? 0 : Math.max(0, elapsedTime - this.raceStartedAt);
+    const raceRunning = this.raceStartedAt !== null;
+    const raceTime = raceRunning ? Math.max(0, elapsedTime - this.raceStartedAt) : 0;
 
     for (const runner of this.runners) {
       const root = runner.character.getRoot();
-      if (this.hasAppliedLineup) {
-        root.t[0] -= runner.x;
-        root.t[2] -= runner.appliedZ;
-        root.s = root.s.map((value) => value / runner.visualScale);
-      }
+      // Karakter menganimasikan root-nya relatif ke origin, jadi offset lajur
+      // dari frame sebelumnya dilepas dulu lalu dipasang lagi setelah update.
+      if (this.hasAppliedLineup) this.#removeLineupOffset(runner, root);
 
-      const raceRunning = this.raceStartedAt !== null;
-      let mode = 'idle';
-      let sonicModeTime = 0;
-      if (raceRunning) {
-        if (runner.name === 'Sonic') {
-          if (raceTime < SONIC_RUN_IN_END) {
-            mode = 'translate';
-            sonicModeTime = raceTime;
-          } else if (raceTime < SONIC_BALL_END) {
-            mode = 'rotate';
-            sonicModeTime = raceTime - SONIC_RUN_IN_END;
-          } else {
-            sonicModeTime = raceTime - runner.finishTime;
-          }
-        } else if (raceTime < runner.finishTime) {
-          mode = runner.name === 'Tails' ? 'fly' : 'run';
-        } else {
-          mode = 'idle';
-        }
-      }
-
+      const { mode, time } = raceRunning
+        ? this.#raceAnimation(runner, raceTime)
+        : { mode: 'idle', time: elapsedTime };
       if (mode !== runner.mode) {
         runner.character.setAnimation(mode, raceTime);
         runner.mode = mode;
       }
-      const animationTime = raceRunning
-        ? (runner.name === 'Sonic' ? sonicModeTime : raceTime)
-        : elapsedTime;
-      runner.character.update(raceRunning ? dt : 0, animationTime);
+      runner.character.update(raceRunning ? dt : 0, time);
 
       const progress = clamp01(raceTime / runner.finishTime);
       runner.appliedZ = START_Z + (FINISH_Z - START_Z) * progress;
-
-      root.t[0] += runner.x;
-      root.t[2] += runner.appliedZ;
-      root.s = root.s.map((value) => value * runner.visualScale);
+      this.#applyLineupOffset(runner, root);
       this.#collectContactingRings(runner, root);
     }
     this.hasAppliedLineup = true;
   }
 
+  // Mode animasi dan waktu animasi karakter pada detik ke-raceTime.
+  #raceAnimation(runner, raceTime) {
+    if (runner.name === 'Sonic') {
+      if (raceTime < SONIC_RUN_IN_END) return { mode: 'translate', time: raceTime };
+      if (raceTime < SONIC_BALL_END) return { mode: 'rotate', time: raceTime - SONIC_RUN_IN_END };
+      return { mode: 'idle', time: raceTime - runner.finishTime };
+    }
+    if (raceTime < runner.finishTime) return { mode: runner.raceMode, time: raceTime };
+    return { mode: 'idle', time: raceTime };
+  }
+
+  #applyLineupOffset(runner, root) {
+    root.t[0] += runner.x;
+    root.t[2] += runner.appliedZ;
+    root.s = root.s.map((value) => value * runner.visualScale);
+  }
+
+  #removeLineupOffset(runner, root) {
+    root.t[0] -= runner.x;
+    root.t[2] -= runner.appliedZ;
+    root.s = root.s.map((value) => value / runner.visualScale);
+  }
+
+  // Ring yang tersentuh karakter (cek kotak sederhana) disembunyikan.
   #collectContactingRings(runner, root) {
     const reach = Math.max(.55, runner.visualScale * .75);
     const characterBottom = root.t[1] - .2;
