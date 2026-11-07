@@ -1,17 +1,9 @@
-const TAU = Math.PI * 2;
+import { cross3, dot3, normalize3 } from './Matrix4.js';
+import { TAU } from './MathUtils.js';
 
-function normalize3(a) {
-  const length = Math.hypot(a[0], a[1], a[2]) || 1;
-  return [a[0] / length, a[1] / length, a[2] / length];
-}
-
-function cross3(a, b) {
-  return [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
-}
+// Semua generator mengembalikan mesh CPU { p, n, i, c }:
+//   p = posisi xyz, n = normal xyz, i = index segitiga (Uint16), c = jumlah index.
+// Mesh lalu di-upload ke GPU lewat Renderer.uploadMesh().
 
 // CPU mesh descriptor matching the baseline's p/n/i/c fields before GPU upload.
 export function mkMesh(pos, nor, idx) {
@@ -321,28 +313,20 @@ export function makeQuad() {
   );
 }
 
-// Cubic 3D Bezier curve with the same parameter orientation as the baseline.
+// Kurva Bezier kubik 3D sebagai fungsi t -> [x, y, z].
 export function bez(p0, p1, p2, p3) {
   const points = [p0, p1, p2, p3];
-  return (t) => {
-    return evaluateBezier3D(points, t);
-  };
+  return (t) => evaluateBezier3D(points, t);
 }
 
-// Tube frame and mesh generation follow the baseline, including its boundary cases.
-export function makeTube(fn, segs, radial, rfn, options = {}) {
-  const sN = options.sN || 1;
-  const sB = options.sB || 1;
-  const closed = !!options.closed;
-  const up = options.up;
-  const pos = [];
-  const nor = [];
-  const idx = [];
+// Membuat fungsi yang memberi frame lokal (point, normal, binormal) di titik t
+// pada kurva. Tangent dihitung dengan beda hingga. Jika `up` diberikan, frame
+// dikunci ke vektor up; jika tidak, normal dibawa dari sampel sebelumnya
+// (parallel transport) agar tabung tidak terpuntir. Harus dipanggil berurutan t naik.
+function createCurveFramer(fn, { closed = false, up } = {}) {
+  const epsilon = 0.0015;
   let previousNormal = null;
-
-  for (let i = 0; i <= segs; i += 1) {
-    const t = i / segs;
-    const epsilon = 0.0015;
+  return (t) => {
     const point = fn(t);
     const before = fn(closed ? t - epsilon : Math.max(0, t - epsilon));
     const after = fn(closed ? t + epsilon : Math.min(1, t + epsilon));
@@ -372,6 +356,23 @@ export function makeTube(fn, segs, radial, rfn, options = {}) {
       binormal = cross3(tangent, normal);
       previousNormal = normal;
     }
+    return { point, normal, binormal };
+  };
+}
+
+// Tabung di sepanjang kurva fn(t). rfn(t) = jari-jari; sN/sB = skala penampang
+// pada arah normal/binormal (penampang elips).
+export function makeTube(fn, segs, radial, rfn, options = {}) {
+  const sN = options.sN || 1;
+  const sB = options.sB || 1;
+  const frameAt = createCurveFramer(fn, { closed: !!options.closed, up: options.up });
+  const pos = [];
+  const nor = [];
+  const idx = [];
+
+  for (let i = 0; i <= segs; i += 1) {
+    const t = i / segs;
+    const { point, normal, binormal } = frameAt(t);
     const radius = rfn(t);
     for (let j = 0; j <= radial; j += 1) {
       const phi = (j / radial) * TAU;
@@ -394,50 +395,21 @@ export function makeTube(fn, segs, radial, rfn, options = {}) {
   return mkMesh(pos, nor, idx);
 }
 
-// A closed, smooth 3D surface around a centerline. Width and thickness are
-// sampled independently so each quill can have its own silhouette.
+// Permukaan tertutup di sepanjang kurva (duri Sonic). Lebar dan tebal
+// diatur terpisah lewat widthFn/thicknessFn; ujungnya ditutup satu titik.
+// Normal dihitung ulang dari rata-rata normal segitiga.
 export function makeQuill(fn, segs = 16, radial = 10, widthFn, thicknessFn, options = {}) {
   const pos = [];
   const nor = [];
   const idx = [];
-  const up = options.up;
   const widthAt = widthFn || (() => 1);
   const thicknessAt = thicknessFn || (() => 1);
-  let previousNormal = null;
   const widthAlongBinormal = !!options.widthAlongBinormal;
+  const frameAt = createCurveFramer(fn, { up: options.up });
 
   for (let i = 0; i <= segs; i += 1) {
     const t = i / segs;
-    const eps = .0015;
-    const point = fn(t);
-    const before = fn(Math.max(0, t - eps));
-    const after = fn(Math.min(1, t + eps));
-    const tangent = normalize3([
-      after[0] - before[0],
-      after[1] - before[1],
-      after[2] - before[2],
-    ]);
-    let normal;
-    let binormal;
-    if (up) {
-      binormal = normalize3(cross3(tangent, up));
-      normal = cross3(binormal, tangent);
-    } else {
-      if (!previousNormal) {
-        const helper = Math.abs(tangent[1]) < .9 ? [0, 1, 0] : [1, 0, 0];
-        previousNormal = normalize3(cross3(cross3(tangent, helper), tangent));
-      }
-      const projection = previousNormal[0] * tangent[0]
-        + previousNormal[1] * tangent[1]
-        + previousNormal[2] * tangent[2];
-      normal = normalize3([
-        previousNormal[0] - tangent[0] * projection,
-        previousNormal[1] - tangent[1] * projection,
-        previousNormal[2] - tangent[2] * projection,
-      ]);
-      binormal = cross3(tangent, normal);
-      previousNormal = normal;
-    }
+    const { point, normal, binormal } = frameAt(t);
 
     const width = Math.max(0, widthAt(t));
     const thickness = Math.max(0, thicknessAt(t));
@@ -502,5 +474,65 @@ export function makeQuill(fn, segs = 16, radial = 10, widthFn, thicknessFn, opti
     nor[i + 1] = normal[1];
     nor[i + 2] = normal[2];
   }
+  return mkMesh(pos, nor, idx);
+}
+
+// Hiperboloid satu lembar (bentuk "pinggang"), tinggi 1 dari y=-0.5 sampai 0.5.
+// waist = jari-jari terkecil di y=0.
+export function makeHyperboloidOneSheet(seg = 32, rings = 16, waist = 0.72) {
+  const pos = [];
+  const nor = [];
+  const idx = [];
+  for (let i = 0; i <= rings; i += 1) {
+    const y = (i / rings) - 0.5;
+    const r = waist * Math.sqrt(1 + 3.2 * y * y);
+    for (let j = 0; j <= seg; j += 1) {
+      const u = (j / seg) * Math.PI * 2;
+      const cu = Math.cos(u);
+      const su = Math.sin(u);
+      pos.push(r * cu, y, r * su);
+      const n = normalize3([cu, -1.5 * y, su]);
+      nor.push(n[0], n[1], n[2]);
+    }
+  }
+  grid(idx, rings, seg);
+  return mkMesh(pos, nor, idx);
+}
+
+// Tabung di sepanjang kurva Bezier dengan titik kontrol P. Tangent diambil
+// dari turunan analitik Bezier, dan normal vertex memperhitungkan perubahan
+// jari-jari (radiusFn) agar shading ujung yang meruncing tetap benar.
+// tMin/tMax memotong sebagian kurva (dipakai untuk ekor dua warna Tails).
+export function makeBezierTube(P, radiusFn, nu = 36, nv = 16, tMin = 0, tMax = 1) {
+  const pos = [];
+  const nor = [];
+  const idx = [];
+  const initialTangent = normalize3(bezierDerivative3D(P, 0));
+  const helperUp = Math.abs(initialTangent[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0];
+  let N = normalize3(cross3(initialTangent, helperUp));
+  for (let i = 0; i <= nu; i += 1) {
+    const t = tMin + (i / nu) * (tMax - tMin);
+    const c = evaluateBezier3D(P, t);
+    const d = bezierDerivative3D(P, t);
+    const len = Math.hypot(d[0], d[1], d[2]) || 1;
+    const T = [d[0] / len, d[1] / len, d[2] / len];
+    const dn = dot3(N, T);
+    N = normalize3([N[0] - T[0] * dn, N[1] - T[1] * dn, N[2] - T[2] * dn]);
+    const B = cross3(T, N);
+    const t0 = Math.max(0, t - 1e-3);
+    const t1 = Math.min(1, t + 1e-3);
+    const drds = (radiusFn(t1) - radiusFn(t0)) / (t1 - t0) / len;
+    const r = radiusFn(t);
+    for (let j = 0; j <= nv; j += 1) {
+      const a = (j / nv) * Math.PI * 2;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const dir = [N[0] * ca + B[0] * sa, N[1] * ca + B[1] * sa, N[2] * ca + B[2] * sa];
+      pos.push(c[0] + dir[0] * r, c[1] + dir[1] * r, c[2] + dir[2] * r);
+      const n = normalize3([dir[0] - T[0] * drds, dir[1] - T[1] * drds, dir[2] - T[2] * drds]);
+      nor.push(n[0], n[1], n[2]);
+    }
+  }
+  grid(idx, nu, nv);
   return mkMesh(pos, nor, idx);
 }
