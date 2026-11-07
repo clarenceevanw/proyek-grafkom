@@ -1,6 +1,7 @@
-// Shader source for Tails character, compatible with project's Renderer and ShaderProgram.
+// Shader Tails (dari reference Tails). Struktur sama dengan Knuckles,
+// dengan konstanta lighting dan gamma pow(c, 0.85) milik Tails.
 
-export const TAILS_VERTEX_SOURCE = `
+const VERTEX_SOURCE = `
 attribute vec3 aPos;
 attribute vec3 aNor;
 uniform mat4 uModel;
@@ -17,7 +18,7 @@ void main() {
 }
 `;
 
-export const TAILS_FRAGMENT_SOURCE = `
+const FRAGMENT_SOURCE = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
@@ -41,17 +42,10 @@ void main() {
 }
 `;
 
-export const TAILS_ATTRIBUTE_BINDINGS = {
-  aPos: 0,
-  aNor: 1,
+// Konfigurasi untuk `new ShaderProgram(gl, TAILS_SHADER)`.
+export const TAILS_SHADER = {
+  vertexSource: VERTEX_SOURCE,
+  fragmentSource: FRAGMENT_SOURCE,
+  attributeBindings: { aPos: 0, aNor: 1 },
+  uniformNames: ['uModel', 'uView', 'uProj', 'uNorm', 'uColor', 'uCam', 'uSpec'],
 };
-
-export const TAILS_UNIFORMS = [
-  'uModel',
-  'uView',
-  'uProj',
-  'uNorm',
-  'uColor',
-  'uCam',
-  'uSpec',
-];
