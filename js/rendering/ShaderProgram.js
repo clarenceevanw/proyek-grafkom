@@ -1,3 +1,7 @@
+// Membungkus satu program WebGL: compile + link shader, lalu menyimpan lokasi
+// atribut dan uniform milik program ini saja (tidak dibagi antar program).
+// options = { vertexSource, fragmentSource, attributeBindings, uniformNames },
+// lihat konstanta *_SHADER di folder shaders/.
 export class ShaderProgram {
   constructor(gl, options) {
     this.gl = gl;
