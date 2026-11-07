@@ -1,12 +1,14 @@
-// Environment-specific equivalent of the shared lighting/fog and material modes.
-// Kept independent from character shader modules so Environment owns its program.
-export const ENVIRONMENT_VERTEX_SOURCE = `
+// Shader environment Green Hill. Isinya setara dengan shader Sonic, tetapi
+// disimpan terpisah agar Environment memiliki program WebGL sendiri.
+// uMode: 1 = langit, 2 = rumput kotak-kotak, 3 = bukit, 4 = bayangan, 5 = warna polos.
+
+const VERTEX_SOURCE = `
 attribute vec3 aPos; attribute vec3 aNor;
 uniform mat4 uModel,uView,uProj; uniform mat3 uNorm;
 varying vec3 vN,vW;
 void main(){ vec4 w=uModel*vec4(aPos,1.0); vW=w.xyz; vN=uNorm*aNor; gl_Position=uProj*uView*w; }`;
 
-export const ENVIRONMENT_FRAGMENT_SOURCE = `
+const FRAGMENT_SOURCE = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
@@ -48,9 +50,10 @@ void main(){
   gl_FragColor=vec4(c,uAlpha);
 }`;
 
-export const ENVIRONMENT_ATTRIBUTE_BINDINGS = { aPos: 0, aNor: 1 };
-export const ENVIRONMENT_UNIFORMS = [
-  'uModel', 'uView', 'uProj', 'uNorm',
-  'uColor', 'uCam', 'uLight', 'uMode',
-  'uSpec', 'uShin', 'uRim', 'uAlpha',
-];
+// Konfigurasi untuk `new ShaderProgram(gl, ENVIRONMENT_SHADER)`.
+export const ENVIRONMENT_SHADER = {
+  vertexSource: VERTEX_SOURCE,
+  fragmentSource: FRAGMENT_SOURCE,
+  attributeBindings: { aPos: 0, aNor: 1 },
+  uniformNames: ['uModel', 'uView', 'uProj', 'uNorm', 'uColor', 'uCam', 'uLight', 'uMode', 'uSpec', 'uShin', 'uRim', 'uAlpha'],
+};
