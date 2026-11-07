@@ -183,12 +183,12 @@ export class Sonic {
 
     for (const side of [1, -1]) {
       head.parts.push(
-        part('sphere', [side * .16, .64, .34], [.20, .05, .09], blue, { r: [0, 0, side * .25] }),
+        part('sphere', [side * .16, .64, .34], [.20, .08, .1], blue, { r: [0, 0, side * .25] }),
         part('cone', [side * .25, .60, -.02], [.14, .36, .06], blue, { r: [0, 0, -side * .30] }),
         part('cone', [side * .255, .60, .015], [.085, .27, .035], tan, { r: [0, 0, -side * .30] }),
       );
       const eye = add(head, node({ name: side > 0 ? 'eyeL' : 'eyeR', t: [side * .16, .41, .385], parts: [
-        part('sphere', [0, 0, 0], [.15, .21, .055], white, { spec: .5, shin: 60 }),
+        part('sphere', [0, 0, 0], [.15, .20, .05], white, { spec: .5, shin: 60 }),
         part('sphere', [0, -.01, .032], [.08, .13, .028], green, { spec: .6, shin: 60 }),
         part('sphere', [0, -.01, .05], [.042, .076, .016], black, { spec: .9, shin: 90 }),
         part('sphere', [-side * .018, .025, .062], [.02, .03, .006], white, { spec: .95, shin: 100 }),
