@@ -425,6 +425,8 @@ export class Knuckles {
       'scale',
       'arbitrary',
       'hierarchical',
+      'warmup',
+      'armcircle',
     ];
     if (!validModes.includes(mode)) {
       throw new Error(`Unsupported Knuckles animation mode: ${mode}`);
@@ -462,6 +464,7 @@ export class Knuckles {
       this.legs[i].r = [0, 0, s * .03];
       this.knees[i].r = [0, 0, 0];
       this.arms[i].r = [0, 0, s * .15];
+      this.arms[i].aa = null;
       this.fores[i].r = [0, 0, 0];
       this.hands[i].r = [0, 0, 0];
     }
@@ -732,6 +735,32 @@ export class Knuckles {
       this.joints.tor.r = [0.1 * sw, 0.2 * cw, 0];
       this.joints.head.r = [0.15 * cw, -0.3 * sw, 0];
       this.joints.tailG.r = [.2 * Math.sin(time * 4), .4 * Math.sin(time * 5), 0];
+    } else if (mode === 'warmup' || mode === 'armcircle') {
+      // Pre-race warm-up: full arm circles around a tilted axis through each shoulder.
+      // The shoulder node (arm) gets aa = arbitrary-axis rotation (Rodrigues, Matrix4.rotateAxis).
+      // Right arm axis: normalize(1, 0, 1) (between sideways X and forward Z).
+      // Left arm axis: normalize(1, 0, -1), the mirror image, so both arms circle symmetrically.
+      // Forearm and hand are children of the arm, so they follow the circle (hierarchical).
+      const relT = Math.max(0, time - (this.modeStartTime || 0));
+      const rp = Math.min(1, relT / 0.6);
+      const rs = rp * rp * (3 - 2 * rp);
+      const angle = -3.2 * relT;
+      const abduct = .15 + (.95 - .15) * rs;
+
+      this.joints.model.t[1] = -0.04 * rs + 0.03 * Math.sin(angle * 2);
+      this.joints.tor.r = [0.05, 0, 0];
+      this.joints.head.r = [0.04 * Math.sin(angle), 0, 0];
+
+      for (let i = 0; i < 2; i += 1) {
+        const s = i ? 1 : -1;
+        this.arms[i].r = [0, 0, s * abduct];
+        this.arms[i].aa = { a: normalize3([1, 0, s]), ang: angle };
+        this.fores[i].r = [-0.15, 0, 0];
+        this.hands[i].r = [0.25 * Math.sin(angle * 2), 0, 0];
+        this.legs[i].r = [0, 0, s * .08];
+        this.knees[i].r = [0.08 + 0.06 * (0.5 - 0.5 * Math.cos(angle * 2)), 0, 0];
+      }
+      this.joints.tailG.r = [.15 * Math.sin(time * 3), .4 * Math.sin(time * 2.5), 0];
     }
   }
 

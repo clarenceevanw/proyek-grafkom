@@ -73,6 +73,10 @@ const animationInfo = {
     'Push Up (Inverse Kinematics)',
     'Knuckles merebahkan badan bertumpu pada ujung jari kaki dan menapakkan kedua telapak tangan di lantai. Menggunakan sistem IK 2-ruas (bahu, siku, pergelangan) untuk melakukan gerakan push-up secara presisi menyentuh lantai.',
   ],
+  warmup: [
+    'Pemanasan / Arm Circle',
+    'Persiapan sebelum balapan: kedua lengan diputar penuh pada sendi bahu memakai rotasi sumbu sembarang (Rodrigues). Sumbu lengan kanan (1, 0, 1) dan lengan kiri (1, 0, -1) yang dinormalisasi, sehingga putarannya miring diagonal. Lengan bawah dan tangan ikut berputar karena hierarki bahu - siku - tangan.',
+  ],
   translate: [
     'Jalan Maju-Mundur / Translate',
     'Knuckles bergerak lurus maju dan mundur pada sumbu depan-belakang (Z) dengan animasi langkah berjalan penuh.',
