@@ -1,3 +1,9 @@
+import { smoothStep } from '../core/MathUtils.js';
+
+// Intro karakter: satu karakter tampil sendiri dan menjalankan urutan fase
+// (masuk dari samping, menoleh ke depan, demo gerakan, lalu keluar lintasan).
+// Setiap fase = { mode animasi karakter, durasi, motion = gerak panggung }.
+
 const START_Z = -32.5;
 const EXIT_Z = 38;
 const ENTRY_X = -4.5;
@@ -12,6 +18,9 @@ const SONIC_SHORT_FORWARD_DURATION = 1.3;
 const SONIC_SHORT_FORWARD_DISTANCE = 1.5;
 const SONIC_RUN_CYCLE_SPEED = 20;
 
+// Jenis fase diam:
+//   hold     = reset ke pose dasar lalu diam.
+//   holdPose = tahan pose terakhir (opsional `finalize` untuk mengunci frame akhir mode).
 const idleLook = { mode: 'idle', duration: ENTRY_IDLE, motion: 'turnToFront' };
 const still = { mode: 'idle', duration: STILL_SETTLE, hold: true };
 const recovery = { mode: 'idle', duration: IDLE_RECOVERY };
@@ -60,10 +69,7 @@ const sequences = {
   ],
 };
 
-function easeInOut(value) {
-  const t = Math.max(0, Math.min(1, value));
-  return t * t * (3 - 2 * t);
-}
+const easeInOut = (value) => smoothStep(0, 1, value);
 
 function findPhase(sequence, elapsed) {
   let start = 0;
@@ -75,6 +81,7 @@ function findPhase(sequence, elapsed) {
   return null;
 }
 
+// Salinan transform semua node di bawah root (untuk blending antar fase).
 function capturePose(root) {
   const pose = [];
   const visit = (node) => {
@@ -91,6 +98,7 @@ function capturePose(root) {
   return pose;
 }
 
+// Interpolasi rotasi sumbu sembarang; arah sumbu disamakan dulu agar tidak berputar balik.
 function blendAxisRotation(from, to, amount) {
   if (!from && !to) return null;
   if (!from) return { a: [...to.a], ang: to.ang * amount };
@@ -114,6 +122,7 @@ function blendAxisRotation(from, to, amount) {
   };
 }
 
+// Campur pose sumber ke pose target (atau ke pose node saat ini jika target null).
 function blendPose(sourcePose, amount, targetPose = null) {
   for (let index = 0; index < sourcePose.length; index += 1) {
     const source = sourcePose[index];
@@ -179,60 +188,70 @@ export class CharacterIntroductionScene {
 
     const { phase, index, start } = current;
     const phaseTime = this.elapsed - start;
-    const { character, visualScale } = this.runner;
+    const { character } = this.runner;
     const root = character.getRoot();
-    const applied = this.runner.introApplied;
-    root.t[0] -= applied.x;
-    root.t[1] -= applied.y;
-    root.t[2] -= applied.z;
-    root.r[1] -= applied.yaw;
-    root.s = root.s.map((value) => value / visualScale);
 
-    if (index !== this.phaseIndex) {
-      if (phase.holdPose) {
-        if (phase.finalize) {
-          character.setAnimation(phase.finalize.mode, 0);
-          character.update(0, phase.finalize.time);
-        }
-        character.setAnimation('idle', 0);
-        this.poseTransition = null;
-      } else if (phase.continuousPose) {
-        character.setAnimation(phase.mode, phaseTime, phase.animationOptions);
-        this.poseTransition = null;
-      } else {
-        const previousPose = capturePose(root);
-        let targetPose = null;
-        if (phase.hold) {
-          character.reset();
-          character.setAnimation('idle', 0);
-          targetPose = capturePose(root);
-        } else {
-          character.setAnimation(phase.mode, phaseTime, phase.animationOptions);
-        }
-        this.poseTransition = {
-          source: previousPose,
-          target: targetPose,
-          start: this.elapsed,
-          duration: POSE_BLEND_DURATION,
-        };
-      }
-      this.runner.mode = phase.mode;
-      this.phaseIndex = index;
-    }
+    // Karakter menganimasikan root relatif ke origin, jadi offset panggung
+    // frame sebelumnya dilepas dulu dan dipasang lagi di akhir.
+    this.#removeStageOffset(root);
+    if (index !== this.phaseIndex) this.#enterPhase(phase, index, phaseTime, root);
     if (!phase.hold && !phase.holdPose) character.update(dt, phaseTime);
-    if (this.poseTransition) {
-      const transitionTime = this.elapsed - this.poseTransition.start;
-      const amount = easeInOut(transitionTime / this.poseTransition.duration);
-      blendPose(this.poseTransition.source, amount, this.poseTransition.target);
-      if (amount >= 1) this.poseTransition = null;
-    }
+    this.#applyPoseTransition();
+    this.#applyStageOffset(root, this.#stageOffset(phase, phaseTime, root));
+  }
 
+  // Dipanggil sekali saat fase baru dimulai: pilih mode dan siapkan blending pose.
+  #enterPhase(phase, index, phaseTime, root) {
+    const { character } = this.runner;
+    if (phase.holdPose) {
+      if (phase.finalize) {
+        character.setAnimation(phase.finalize.mode, 0);
+        character.update(0, phase.finalize.time);
+      }
+      character.setAnimation('idle', 0);
+      this.poseTransition = null;
+    } else if (phase.continuousPose) {
+      character.setAnimation(phase.mode, phaseTime, phase.animationOptions);
+      this.poseTransition = null;
+    } else {
+      const previousPose = capturePose(root);
+      let targetPose = null;
+      if (phase.hold) {
+        character.reset();
+        character.setAnimation('idle', 0);
+        targetPose = capturePose(root);
+      } else {
+        character.setAnimation(phase.mode, phaseTime, phase.animationOptions);
+      }
+      this.poseTransition = {
+        source: previousPose,
+        target: targetPose,
+        start: this.elapsed,
+        duration: POSE_BLEND_DURATION,
+      };
+    }
+    this.runner.mode = phase.mode;
+    this.phaseIndex = index;
+  }
+
+  #applyPoseTransition() {
+    if (!this.poseTransition) return;
+    const transitionTime = this.elapsed - this.poseTransition.start;
+    const amount = easeInOut(transitionTime / this.poseTransition.duration);
+    blendPose(this.poseTransition.source, amount, this.poseTransition.target);
+    if (amount >= 1) this.poseTransition = null;
+  }
+
+  // Posisi panggung (x, y, z) dan arah hadap (yaw) karakter untuk fase ini.
+  #stageOffset(phase, phaseTime, root) {
     const progress = easeInOut(phaseTime / phase.duration);
     let x = 0;
     let y = 0;
     let z = START_Z;
     let yaw = 0;
     if (phase.motion === 'enter') {
+      // Masuk dari kiri sambil menghadap samping. Gerak maju bawaan mode
+      // translate dinolkan (kecuali Tails yang terbang).
       x = ENTRY_X * (1 - progress);
       yaw = ENTRY_YAW;
       if (this.runner.name !== 'Tails') root.t[2] = 0;
@@ -248,13 +267,25 @@ export class CharacterIntroductionScene {
       const startZ = phase.startZ ?? START_Z;
       z = startZ + (EXIT_Z - startZ) * progress;
     }
+    return { x, y, z, yaw };
+  }
 
-    root.t[0] += x;
-    root.t[1] += y;
-    root.t[2] += z;
-    root.r[1] += yaw;
-    root.s = root.s.map((value) => value * visualScale);
-    this.runner.introApplied = { x, y, z, yaw };
+  #applyStageOffset(root, offset) {
+    root.t[0] += offset.x;
+    root.t[1] += offset.y;
+    root.t[2] += offset.z;
+    root.r[1] += offset.yaw;
+    root.s = root.s.map((value) => value * this.runner.visualScale);
+    this.runner.introApplied = offset;
+  }
+
+  #removeStageOffset(root) {
+    const applied = this.runner.introApplied;
+    root.t[0] -= applied.x;
+    root.t[1] -= applied.y;
+    root.t[2] -= applied.z;
+    root.r[1] -= applied.yaw;
+    root.s = root.s.map((value) => value / this.runner.visualScale);
   }
 
   render(renderContext) {
