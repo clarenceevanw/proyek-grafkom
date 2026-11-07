@@ -1,3 +1,8 @@
+import { Matrix4 } from '../core/Matrix4.js';
+
+// Renderer kecil untuk WebGL 1: upload mesh ke GPU dan menggambar mesh
+// dengan ShaderProgram tertentu. Renderer tidak tahu nama uniform karakter;
+// setiap karakter mengirim uniform miliknya sendiri.
 export class Renderer {
   constructor(gl) {
     if (!gl) throw new Error('Renderer requires an existing WebGL context');
@@ -7,6 +12,7 @@ export class Renderer {
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
   }
 
+  // Mesh CPU { p, n, i, c } -> buffer GPU { p, n, i, c }.
   uploadMesh(mesh) {
     if (!mesh || !(mesh.p instanceof Float32Array)
       || !(mesh.n instanceof Float32Array)
@@ -34,6 +40,8 @@ export class Renderer {
     };
   }
 
+  // Urutan gambar satu mesh: useProgram -> bind atribut posisi & normal
+  // (lokasi diambil dari program ini) -> set uniform -> drawElements.
   drawMesh(mesh, shaderProgram, uniforms) {
     const gl = this.gl;
     shaderProgram.use();
@@ -51,6 +59,17 @@ export class Renderer {
     this.#setUniforms(shaderProgram, uniforms);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.i);
     gl.drawElements(gl.TRIANGLES, mesh.c, gl.UNSIGNED_SHORT, 0);
+  }
+
+  // Menggambar seluruh scene graph di bawah `root`. makeUniforms(part, world)
+  // mengembalikan uniform untuk satu part. Mengembalikan jumlah part yang digambar.
+  drawTree(root, shaderProgram, makeUniforms) {
+    let count = 0;
+    root.traverse(Matrix4.identity(), (_node, _nodeWorld, part, world) => {
+      this.drawMesh(part.mesh, shaderProgram, makeUniforms(part, world));
+      count += 1;
+    });
+    return count;
   }
 
   #setUniforms(shaderProgram, uniforms) {
@@ -74,5 +93,12 @@ export class Renderer {
     } else {
       throw new TypeError(`Uniform "${name}" must be a number or a vector/matrix of length 3, 9, or 16`);
     }
+  }
+}
+
+// Validasi renderContext bersama yang dikirim main loop ke setiap objek.
+export function assertRenderContext(context, owner) {
+  if (!context || !context.viewMatrix || !context.projectionMatrix || !context.cameraPosition) {
+    throw new Error(`${owner} renderContext needs viewMatrix, projectionMatrix, and cameraPosition`);
   }
 }
