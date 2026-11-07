@@ -1,52 +1,32 @@
-import { Matrix4 } from './core/Matrix4.js';
 import { Renderer } from './rendering/Renderer.js';
 import { ShaderProgram } from './rendering/ShaderProgram.js';
-import {
-  KNUCKLES_ATTRIBUTE_BINDINGS,
-  KNUCKLES_FRAGMENT_SOURCE,
-  KNUCKLES_UNIFORMS,
-  KNUCKLES_VERTEX_SOURCE,
-} from './shaders/knucklesShader.js';
+import { KNUCKLES_SHADER } from './shaders/knucklesShader.js';
 import { Knuckles } from './characters/Knuckles.js';
+import { OrbitCamera } from './app/OrbitCamera.js';
+import {
+  FrameClock,
+  bindButtons,
+  createWebGLContext,
+  resizeCanvas,
+  setActiveButton,
+  showRenderStatus,
+  startRenderLoop,
+} from './app/viewerSetup.js';
 
 const canvas = document.getElementById('gl');
 const status = document.getElementById('status');
 const modeTitle = document.getElementById('mode-title');
 const modeCopy = document.getElementById('mode-copy');
-
-if (!canvas) {
-  throw new Error('Canvas element #gl tidak ditemukan');
-}
-
-const gl = canvas.getContext('webgl', { antialias: true }) || canvas.getContext('experimental-webgl');
-if (!gl) {
-  if (status) status.textContent = 'Error: WebGL 1 tidak didukung pada browser ini';
-  const stage = canvas.parentElement;
-  if (stage) {
-    stage.innerHTML = '<div style="padding:24px;color:#ff6b6b;font-weight:600;">Inisialisasi WebGL gagal. Browser Anda tidak mendukung WebGL 1.</div>';
-  }
-  throw new Error('WebGL 1 tidak tersedia');
-}
+const gl = createWebGLContext(canvas, status);
 
 const renderer = new Renderer(gl);
-const shader = new ShaderProgram(gl, {
-  vertexSource: KNUCKLES_VERTEX_SOURCE,
-  fragmentSource: KNUCKLES_FRAGMENT_SOURCE,
-  attributeBindings: KNUCKLES_ATTRIBUTE_BINDINGS,
-  uniformNames: KNUCKLES_UNIFORMS,
-});
-const knuckles = new Knuckles(gl, { renderer, shader });
+const knuckles = new Knuckles(gl, { renderer, shader: new ShaderProgram(gl, KNUCKLES_SHADER) });
 knuckles.setAnimation('idle');
 
-let radius = 8.5;
-const target = [0, 2.2, 0];
-let yaw = 0;
-let pitch = 0;
-let dragging = false;
-let lastX = 0;
-let lastY = 0;
-let lastFrame = performance.now();
-let elapsed = 0;
+const DEFAULT_TARGET = [0, 2.2, 0];
+const DEFAULT_RADIUS = 8.5;
+const camera = new OrbitCamera({ target: DEFAULT_TARGET, radius: DEFAULT_RADIUS, minRadius: 4.5, maxRadius: 18.0, zoomStep: .5 });
+const clock = new FrameClock();
 
 const animationInfo = {
   idle: [
@@ -100,131 +80,53 @@ const animationInfo = {
 };
 
 function setAnimation(mode) {
-  knuckles.setAnimation(mode, elapsed);
-  document.querySelectorAll('[data-animation]').forEach((button) => {
-    button.classList.toggle('active', button.dataset.animation === mode);
-  });
+  knuckles.setAnimation(mode, clock.elapsed);
+  setActiveButton('animation', mode);
   if (animationInfo[mode]) {
     [modeTitle.textContent, modeCopy.textContent] = animationInfo[mode];
   }
 }
 
-document.querySelectorAll('[data-animation]').forEach((button) => {
-  button.addEventListener('click', () => setAnimation(button.dataset.animation));
-});
-
-document.getElementById('reset').addEventListener('click', () => {
-  knuckles.reset();
-  elapsed = 0;
-  lastFrame = performance.now();
-  setAnimation('idle');
-  setView('front');
-  radius = 8.5;
-  target[0] = 0;
-  target[1] = 2.2;
-  target[2] = 0;
-});
+const VIEW_ANGLES = { front: [0, 0], back: [Math.PI, 0], side: [Math.PI / 2, 0] };
 
 function setView(view) {
-  if (view === 'front') { yaw = 0; pitch = 0; }
-  if (view === 'back') { yaw = Math.PI; pitch = 0; }
-  if (view === 'side') { yaw = Math.PI / 2; pitch = 0; }
-  document.querySelectorAll('[data-view]').forEach((button) => {
-    button.classList.toggle('active', button.dataset.view === view);
-  });
+  if (VIEW_ANGLES[view]) [camera.yaw, camera.pitch] = VIEW_ANGLES[view];
+  setActiveButton('view', view);
 }
 
-document.querySelectorAll('[data-view]').forEach((button) => {
-  button.addEventListener('click', () => setView(button.dataset.view));
+bindButtons('animation', setAnimation);
+bindButtons('view', setView);
+document.getElementById('reset').addEventListener('click', () => {
+  knuckles.reset();
+  clock.restart();
+  setAnimation('idle');
+  setView('front');
+  camera.radius = DEFAULT_RADIUS;
+  camera.target = [...DEFAULT_TARGET];
 });
+camera.attach(canvas, { onDragStart: () => setActiveButton('view', 'free') });
 
+// Parameter URL untuk inspeksi cepat, mis. ?anim=pushup&view=side&t=2
 const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.has('view')) {
-  setView(urlParams.get('view'));
-}
-if (urlParams.has('anim')) {
-  setAnimation(urlParams.get('anim'));
-}
-if (urlParams.has('t')) {
-  elapsed = parseFloat(urlParams.get('t')) || 0;
-}
+if (urlParams.has('view')) setView(urlParams.get('view'));
+if (urlParams.has('anim')) setAnimation(urlParams.get('anim'));
+if (urlParams.has('t')) clock.elapsed = parseFloat(urlParams.get('t')) || 0;
 
-canvas.addEventListener('pointerdown', (event) => {
-  dragging = true;
-  lastX = event.clientX;
-  lastY = event.clientY;
-  canvas.setPointerCapture(event.pointerId);
-  document.querySelectorAll('[data-view]').forEach((button) => button.classList.remove('active'));
-  const freeBtn = document.querySelector('[data-view="free"]');
-  if (freeBtn) freeBtn.classList.add('active');
-});
+startRenderLoop((now) => {
+  const dt = clock.tick(now);
+  resizeCanvas(gl, canvas);
+  knuckles.update(dt, clock.elapsed);
 
-canvas.addEventListener('pointermove', (event) => {
-  if (!dragging) return;
-  yaw -= (event.clientX - lastX) * .008;
-  pitch = Math.max(-1.25, Math.min(1.25, pitch + (event.clientY - lastY) * .008));
-  lastX = event.clientX;
-  lastY = event.clientY;
-});
-
-canvas.addEventListener('pointerup', () => { dragging = false; });
-canvas.addEventListener('pointercancel', () => { dragging = false; });
-
-canvas.addEventListener('wheel', (event) => {
-  event.preventDefault();
-  radius = Math.max(4.5, Math.min(18.0, radius + Math.sign(event.deltaY) * .5));
-}, { passive: false });
-
-function resize() {
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
-  const width = Math.floor(canvas.clientWidth * ratio);
-  const height = Math.floor(canvas.clientHeight * ratio);
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width = width;
-    canvas.height = height;
-  }
-  gl.viewport(0, 0, canvas.width, canvas.height);
-}
-
-function frame(now) {
-  const dt = Math.min(.05, (now - lastFrame) / 1000);
-  lastFrame = now;
-  elapsed += dt;
-  resize();
-  knuckles.update(dt, elapsed);
-
-  // Smooth camera panning for pushup pose
+  // Saat push up, kamera turun dan maju perlahan agar badan tetap di tengah.
   const isPushup = knuckles.animation === 'pushup';
-  const destY = isPushup ? 1.0 : 2.2;
-  const destZ = isPushup ? 1.4 : 0.0;
-  target[1] += (destY - target[1]) * 0.08;
-  target[2] += (destZ - target[2]) * 0.08;
-
-  const horizontal = Math.cos(pitch) * radius;
-  const cameraPosition = [
-    target[0] + Math.sin(yaw) * horizontal,
-    target[1] + Math.sin(pitch) * radius,
-    target[2] + Math.cos(yaw) * horizontal,
-  ];
-  const viewMatrix = Matrix4.lookAt(cameraPosition, target, [0, 1, 0]);
-  const projectionMatrix = Matrix4.perspective(.72, canvas.width / canvas.height, .1, 100);
+  const targetY = isPushup ? 1.0 : 2.2;
+  const targetZ = isPushup ? 1.4 : 0.0;
+  camera.target[1] += (targetY - camera.target[1]) * 0.08;
+  camera.target[2] += (targetZ - camera.target[2]) * 0.08;
 
   gl.enable(gl.DEPTH_TEST);
   gl.clearColor(.08, .09, .13, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-  const partCount = knuckles.render({
-    gl,
-    viewMatrix,
-    projectionMatrix,
-    cameraPosition,
-  });
-
-  const error = gl.getError();
-  if (status) {
-    status.textContent = `Parts: ${partCount} | WebGL: ${error === gl.NO_ERROR ? 'OK' : error}`;
-  }
-  requestAnimationFrame(frame);
-}
-
-requestAnimationFrame(frame);
+  const partCount = knuckles.render({ gl, ...camera.frame(canvas.width / canvas.height) });
+  showRenderStatus(status, gl, partCount);
+});
