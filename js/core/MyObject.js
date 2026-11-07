@@ -1,9 +1,26 @@
 import { Matrix4 } from './Matrix4.js';
 
-function defaultTransform(value, fallback) {
-  return value === undefined ? fallback.slice() : value;
+// Matriks rotasi Euler. Urutan default 'YXZ' berarti R = Ry * Rx * Rz
+// (baseline Sonic); 'ZYX' berarti R = Rz * Ry * Rx (dipakai Knuckles).
+function eulerRotation(r, order) {
+  if (order === 'ZYX') {
+    return Matrix4.multiply(
+      Matrix4.rotateZ(r[2]),
+      Matrix4.multiply(Matrix4.rotateY(r[1]), Matrix4.rotateX(r[0])),
+    );
+  }
+  return Matrix4.multiply(
+    Matrix4.rotateY(r[1]),
+    Matrix4.multiply(Matrix4.rotateX(r[0]), Matrix4.rotateZ(r[2])),
+  );
 }
 
+function hasRotation(r) {
+  return r[0] || r[1] || r[2];
+}
+
+// Part = satu mesh yang digambar pada sebuah node, beserta transform lokal
+// kecil (t/r/s) dan material (warna, specular, dll).
 export function createPart(mesh, t, s, color, options = {}) {
   return Object.assign({
     mesh,
@@ -19,18 +36,21 @@ export function createPart(mesh, t, s, color, options = {}) {
   }, options);
 }
 
+// Node scene graph. Setiap node menyimpan transform lokal:
+//   t  = translasi, r = rotasi Euler (radian), s = skala,
+//   aa = rotasi sumbu sembarang { a: axis, ang: sudut } (Rodrigues).
+// Matriks dunia dihitung sebagai world = parentWorld * local.
 export class MyObject {
   constructor(options = {}) {
     this.name = options.name || '';
-    this.t = defaultTransform(options.t, [0, 0, 0]);
-    this.r = defaultTransform(options.r, [0, 0, 0]);
-    this.s = defaultTransform(options.s, [1, 1, 1]);
+    this.t = options.t === undefined ? [0, 0, 0] : options.t;
+    this.r = options.r === undefined ? [0, 0, 0] : options.r;
+    this.s = options.s === undefined ? [1, 1, 1] : options.s;
     this.rotationOrder = options.rotationOrder || 'YXZ';
     this.aa = options.aa || null;
     this.parts = options.parts || [];
     this.children = options.children || [];
     this.visible = options.visible === undefined ? true : options.visible;
-    this.worldMatrix = null;
   }
 
   addChild(child) {
@@ -38,29 +58,14 @@ export class MyObject {
     return child;
   }
 
+  // local = T * R_arbitrary * R_euler * S
   localMatrix() {
     let matrix = Matrix4.translation(this.t[0], this.t[1], this.t[2]);
     if (this.aa) {
       matrix = Matrix4.multiply(matrix, Matrix4.rotateAxis(this.aa.a, this.aa.ang));
     }
-    if (this.r[0] || this.r[1] || this.r[2]) {
-      if (this.rotationOrder === 'ZYX') {
-        matrix = Matrix4.multiply(
-          matrix,
-          Matrix4.multiply(
-            Matrix4.rotateZ(this.r[2]),
-            Matrix4.multiply(Matrix4.rotateY(this.r[1]), Matrix4.rotateX(this.r[0])),
-          ),
-        );
-      } else {
-        matrix = Matrix4.multiply(
-          matrix,
-          Matrix4.multiply(
-            Matrix4.rotateY(this.r[1]),
-            Matrix4.multiply(Matrix4.rotateX(this.r[0]), Matrix4.rotateZ(this.r[2])),
-          ),
-        );
-      }
+    if (hasRotation(this.r)) {
+      matrix = Matrix4.multiply(matrix, eulerRotation(this.r, this.rotationOrder));
     }
     if (this.s[0] !== 1 || this.s[1] !== 1 || this.s[2] !== 1) {
       matrix = Matrix4.multiply(matrix, Matrix4.scale(this.s[0], this.s[1], this.s[2]));
@@ -68,37 +73,22 @@ export class MyObject {
     return matrix;
   }
 
-  partMatrix(parentMatrix, part) {
-    let matrix = Matrix4.multiply(parentMatrix, Matrix4.translation(part.t[0], part.t[1], part.t[2]));
-    const pr = part.r || [0, 0, 0];
-    if (pr[0] || pr[1] || pr[2]) {
+  // partWorld = nodeWorld * T * R_euler * S
+  partMatrix(nodeWorld, part) {
+    let matrix = Matrix4.multiply(nodeWorld, Matrix4.translation(part.t[0], part.t[1], part.t[2]));
+    const rotation = part.r || [0, 0, 0];
+    if (hasRotation(rotation)) {
       const order = part.rotationOrder || this.rotationOrder || 'YXZ';
-      if (order === 'ZYX') {
-        matrix = Matrix4.multiply(
-          matrix,
-          Matrix4.multiply(
-            Matrix4.rotateZ(pr[2]),
-            Matrix4.multiply(Matrix4.rotateY(pr[1]), Matrix4.rotateX(pr[0])),
-          ),
-        );
-      } else {
-        matrix = Matrix4.multiply(
-          matrix,
-          Matrix4.multiply(
-            Matrix4.rotateY(pr[1]),
-            Matrix4.multiply(Matrix4.rotateX(pr[0]), Matrix4.rotateZ(pr[2])),
-          ),
-        );
-      }
+      matrix = Matrix4.multiply(matrix, eulerRotation(rotation, order));
     }
     return Matrix4.multiply(matrix, Matrix4.scale(part.s[0], part.s[1], part.s[2]));
   }
 
-  // Visitor receives (node, nodeWorld, part, partWorld) without knowing WebGL details.
+  // Menelusuri node ini dan seluruh turunannya (depth-first).
+  // visit(node, nodeWorld, part, partWorld) dipanggil untuk setiap part.
   traverse(parentWorld, visit) {
     if (!this.visible) return;
     const world = Matrix4.multiply(parentWorld, this.localMatrix());
-    this.worldMatrix = world;
     for (const part of this.parts) {
       visit(this, world, part, this.partMatrix(world, part));
     }
