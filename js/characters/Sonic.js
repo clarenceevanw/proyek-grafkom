@@ -11,6 +11,7 @@ const black = [.03, .03, .04];
 const green = [.10, .72, .25];
 const PELVY = 1.055;
 const PIV = 1.055;
+const ROLL_ROTATIONS_PER_SECOND = 6 / 5.9;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -37,7 +38,7 @@ function poseIdle(time) {
     elL: -.55, elR: -.55, shL: .05, shR: .05,
     hipR: -.03 - .16 * tap * toeTap, kneeR: .03 + .3 * tap * toeTap,
     hipL: -.03, kneeL: .03,
-    hy: 0, hx: 0, hz: 0,
+    hy: .14 * Math.sin(time * .7), hx: 0, hz: 0,
     tx: .05, qw: .03 * Math.sin(time * 3), blink: 1 - .92 * blink,
   });
 }
@@ -105,6 +106,7 @@ export class Sonic {
     this.quills = [];
     this.root = this.#createHierarchy();
     this.animation = 'idle';
+    this.rollRunPhaseOffset = 0;
     this.reset();
   }
 
@@ -245,6 +247,7 @@ export class Sonic {
       const ankle = add(knee, node({ name: `ank${label}`, t: [0, -.37, 0], parts: [
         this.#cylinder([0, .10, 0], .108, .16, white, { spec: .1 }),
         part('sphere', [0, -.045, .075], [.135, .09, .235], red, { spec: .7, shin: 50 }),
+        part('sphere', [0, -.04, .14], [.135, .09, .02], white, { spec: .28, shin: 36 }),
         part('sphere', [0, -.105, .075], [.14, .03, .24], white),
         this.#cylinder([0, -.005, .03], .125, .05, white, { spec: .4, r: [Math.PI / 2, 0, 0], s: [.135, .12, .07] }),
         part('sphere', [side * .135, -.02, .03], [.03, .045, .05], gold, { spec: .9, shin: 70 }),
@@ -278,14 +281,16 @@ export class Sonic {
 
   getRoot() { return this.root; }
 
-  setAnimation(mode) {
-    const modes = ['idle', 'translate', 'rotate', 'scale', 'arbitrary', 'hierarchical'];
+  setAnimation(mode, _elapsedTime = 0, options = {}) {
+    const modes = ['idle', 'translate', 'rotate', 'roll', 'scale', 'arbitrary', 'hierarchical'];
     if (!modes.includes(mode)) throw new Error(`Unsupported Sonic animation mode: ${mode}`);
     this.animation = mode;
+    this.rollRunPhaseOffset = mode === 'roll' ? (options.runPhaseOffset || 0) : 0;
   }
 
   reset() {
     this.animation = 'idle';
+    this.rollRunPhaseOffset = 0;
     this.#resetTransforms();
     this.#applyPose(pose(), 0);
   }
@@ -325,6 +330,14 @@ export class Sonic {
         currentPose = poseIdle(time + 10);
         currentPose.ball = ball;
       }
+    } else if (this.animation === 'roll') {
+      const curlDuration = .45;
+      const ball = smoothStep(0, curlDuration, time);
+      const runPhase = time * 20 + this.rollRunPhaseOffset;
+      this.root.t = [0, .06 + (1 - ball) * Math.abs(Math.sin(runPhase)) * .14, 0];
+      this.joints.piv.r = [Math.max(0, time - curlDuration) * Math.PI * 2 * ROLL_ROTATIONS_PER_SECOND, 0, 0];
+      currentPose = blendPose(poseRun(runPhase, 1), poseIdle(time + 10), ball);
+      currentPose.ball = ball;
     } else if (this.animation === 'scale') {
       const uniformScale = 1 + .6 * Math.sin(time * 1.6);
       currentPose.sx = uniformScale;

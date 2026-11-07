@@ -130,6 +130,7 @@ export class Knuckles {
 
     this.root = this.#buildHierarchy();
     this.animation = 'idle';
+    this.warmupProfile = null;
     this.reset();
   }
 
@@ -409,7 +410,7 @@ export class Knuckles {
     return this.root;
   }
 
-  setAnimation(mode, elapsedTime = 0) {
+  setAnimation(mode, elapsedTime = 0, options = {}) {
     const validModes = [
       'idle',
       'walk',
@@ -433,11 +434,13 @@ export class Knuckles {
     }
     this.animation = mode;
     this.modeStartTime = typeof elapsedTime === 'number' ? elapsedTime : 0;
+    this.warmupProfile = mode === 'warmup' ? options.warmupProfile || null : null;
   }
 
   reset() {
     this.animation = 'idle';
     this.modeStartTime = 0;
+    this.warmupProfile = null;
     this.#resetTransforms();
   }
 
@@ -744,7 +747,13 @@ export class Knuckles {
       const relT = Math.max(0, time - (this.modeStartTime || 0));
       const rp = Math.min(1, relT / 0.6);
       const rs = rp * rp * (3 - 2 * rp);
-      const angle = -3.2 * relT;
+      const warmupProgress = this.warmupProfile
+        ? Math.max(0, Math.min(1, relT / this.warmupProfile.duration))
+        : 0;
+      const smoothProgress = warmupProgress * warmupProgress * (3 - 2 * warmupProgress);
+      const angle = this.warmupProfile
+        ? -TAU * this.warmupProfile.revolutions * smoothProgress
+        : -3.2 * relT;
       const abduct = .15 + (.95 - .15) * rs;
 
       this.joints.model.t[1] = -0.04 * rs + 0.03 * Math.sin(angle * 2);

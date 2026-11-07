@@ -37,7 +37,6 @@ const SONIC_FINISH_TIME = 8;
 const SONIC_BALL_END = SONIC_FINISH_TIME;
 const TAILS_FINISH_TIME = 10;
 const KNUCKLES_FINISH_TIME = 12;
-
 function clamp01(value) {
   return Math.max(0, Math.min(1, value));
 }
@@ -100,6 +99,18 @@ export class RaceScene {
     return true;
   }
 
+  resetToLineup() {
+    if (this.raceRequested) return false;
+    for (const runner of this.runners) {
+      runner.character.reset();
+      runner.character.getRoot().visible = true;
+      runner.mode = 'idle';
+      runner.appliedZ = START_Z;
+    }
+    this.hasAppliedLineup = false;
+    return true;
+  }
+
   update(dt, elapsedTime) {
     this.environment.update(elapsedTime);
     if (this.raceRequested && this.raceStartedAt === null) this.raceStartedAt = elapsedTime;
@@ -138,10 +149,10 @@ export class RaceScene {
         runner.character.setAnimation(mode, raceTime);
         runner.mode = mode;
       }
-      runner.character.update(
-        raceRunning ? dt : 0,
-        runner.name === 'Sonic' ? sonicModeTime : raceTime,
-      );
+      const animationTime = raceRunning
+        ? (runner.name === 'Sonic' ? sonicModeTime : raceTime)
+        : elapsedTime;
+      runner.character.update(raceRunning ? dt : 0, animationTime);
 
       const progress = clamp01(raceTime / runner.finishTime);
       runner.appliedZ = START_Z + (FINISH_Z - START_Z) * progress;

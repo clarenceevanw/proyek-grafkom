@@ -1,11 +1,14 @@
 import { Matrix4 } from './core/Matrix4.js';
 import { RaceScene } from './scenes/RaceScene.js';
+import { CharacterIntroductionScene } from './scenes/CharacterIntroductionScene.js';
 
 const canvas = document.getElementById('gl');
 const gl = canvas.getContext('webgl', { antialias: true });
 if (!gl) throw new Error('WebGL tidak tersedia');
 
-const scene = new RaceScene(gl);
+const raceScene = new RaceScene(gl);
+const introductionScene = new CharacterIntroductionScene(raceScene);
+let activeScene = raceScene;
 const target = [0, 1.8, -22];
 let radius = 54;
 let yaw = 0;
@@ -40,10 +43,30 @@ canvas.addEventListener('wheel', (event) => {
 }, { passive: false });
 
 window.addEventListener('keydown', (event) => {
+  if (event.repeat) return;
   const code = event.code;
+  const intros = {
+    Digit1: 'sonic', Numpad1: 'sonic',
+    Digit2: 'knuckles', Numpad2: 'knuckles',
+    Digit3: 'tails', Numpad3: 'tails',
+  };
+  if (intros[code]) {
+    event.preventDefault();
+    if (activeScene === raceScene && introductionScene.start(intros[code])) {
+      activeScene = introductionScene;
+    }
+    return;
+  }
+  if (code === 'Digit0' || code === 'Numpad0') {
+    event.preventDefault();
+    if (activeScene === introductionScene && introductionScene.cancel()) {
+      activeScene = raceScene;
+    }
+    return;
+  }
   if (code === 'KeyG') {
     event.preventDefault();
-    scene.startRace();
+    if (activeScene === raceScene) raceScene.startRace();
     return;
   }
   if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ShiftLeft', 'ShiftRight'].includes(code)) return;
@@ -86,7 +109,8 @@ function frame(now) {
   elapsed += dt;
   resize();
   moveCamera(dt);
-  scene.update(dt, elapsed);
+  activeScene.update(dt, elapsed);
+  if (activeScene === introductionScene && !introductionScene.active) activeScene = raceScene;
 
   const horizontal = Math.cos(pitch) * radius;
   const cameraPosition = [
@@ -99,7 +123,7 @@ function frame(now) {
 
   gl.clearColor(.78, .91, 1, 1);
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-  scene.render({
+  activeScene.render({
     gl,
     viewMatrix,
     projectionMatrix,
