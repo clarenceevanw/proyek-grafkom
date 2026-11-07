@@ -1,6 +1,7 @@
-// Knuckles shader source based on reference/Project/script.js
+// Shader Knuckles (dari reference Knuckles). Cahaya arah tetap di dalam shader,
+// diffuse + specular + rim, lalu koreksi gamma ringan pow(c, 0.8).
 
-export const KNUCKLES_VERTEX_SOURCE = `
+const VERTEX_SOURCE = `
 attribute vec3 aPos;
 attribute vec3 aNor;
 uniform mat4 uModel;
@@ -17,7 +18,7 @@ void main() {
 }
 `;
 
-export const KNUCKLES_FRAGMENT_SOURCE = `
+const FRAGMENT_SOURCE = `
 #ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
@@ -41,17 +42,10 @@ void main() {
 }
 `;
 
-export const KNUCKLES_ATTRIBUTE_BINDINGS = {
-  aPos: 0,
-  aNor: 1,
+// Konfigurasi untuk `new ShaderProgram(gl, KNUCKLES_SHADER)`.
+export const KNUCKLES_SHADER = {
+  vertexSource: VERTEX_SOURCE,
+  fragmentSource: FRAGMENT_SOURCE,
+  attributeBindings: { aPos: 0, aNor: 1 },
+  uniformNames: ['uModel', 'uView', 'uProj', 'uNorm', 'uColor', 'uCam', 'uSpec'],
 };
-
-export const KNUCKLES_UNIFORMS = [
-  'uModel',
-  'uView',
-  'uProj',
-  'uNorm',
-  'uColor',
-  'uCam',
-  'uSpec',
-];
