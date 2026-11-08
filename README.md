@@ -40,47 +40,4 @@ js/
     OrbitCamera.js    kamera orbit (drag = putar, scroll = zoom)
     viewerSetup.js    context WebGL, resize canvas, FrameClock, loop, helper tombol
   *-viewer.js         entry point tiap halaman HTML
-reference/            source asli dari tiap anggota (tidak diedit)
 ```
-
-## Alur satu frame
-
-```
-FrameClock.tick()            -> dt dan waktu berjalan
-resizeCanvas()
-character.update(dt, time)   -> reset ke pose dasar, lalu terapkan mode animasi
-camera.frame(aspect)         -> cameraPosition, viewMatrix, projectionMatrix
-character.render(context)    -> Renderer.drawTree: traverse scene graph, drawMesh per part
-```
-
-Hanya ada satu `requestAnimationFrame` loop per halaman (`startRenderLoop`).
-
-## Transformasi
-
-Setiap node `MyObject` menghitung:
-
-```
-local = T * R_arbitrary * R_euler * S
-world = parentWorld * local
-```
-
-- `R_euler` default `Ry * Rx * Rz` (Sonic, Tails); Knuckles memakai urutan `ZYX`.
-- `R_arbitrary` = `Matrix4.rotateAxis(axis, angle)` (rumus Rodrigues, axis dinormalisasi).
-- Karena `world = parentWorld * local`, memutar bahu ikut memutar siku dan tangan (hierarki).
-
-## Interface karakter
-
-Ketiga karakter punya method yang sama:
-
-```
-new Character(gl, { renderer, shader })
-getRoot()                    root scene graph
-setAnimation(mode, time, options)
-update(dt, elapsedTime)
-render(renderContext)        mengembalikan jumlah part yang digambar
-reset()
-```
-
-`renderContext` = `{ gl, viewMatrix, projectionMatrix, cameraPosition, lightDirection? }`.
-Setiap karakter menggambar dengan shader miliknya sendiri; uniform yang dikirim
-berbeda per shader, tetapi data kamera sama.
