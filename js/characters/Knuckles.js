@@ -21,6 +21,50 @@ const COLORS = {
 
 const PI = Math.PI;
 
+// DEBUG SEMENTARA: warna per jenis bentuk, aktif dengan ?debugShapes=1 di URL.
+// Warna asli part tidak diubah; penimpaan hanya terjadi saat render.
+export const DEBUG_SHAPE_LABELS = {
+  ellipsoid: 'Ellipsoid - kepala, badan, mata, hidung, kepalan, jari, sendi, sepatu, tali, kelopak',
+  cylinder: 'Cylinder - lengan, paha, betis, kaos kaki, sol',
+  quillMain: 'Elliptic paraboloid - duri utama',
+  quillBack: 'Elliptic paraboloid - duri belakang',
+  cuff: 'Elliptic paraboloid - manset sarung tangan',
+  cone: 'Cone - tonjolan tinju',
+  hyperbolic: 'Hyperbolic paraboloid - alas telapak sepatu',
+  bezierTube: 'Tabung Bezier 3D - mulut, ekor, helai samping',
+  hairLock: 'Pita Bezier (hairLockMesh) - helai atas',
+  crescent: 'Permukaan parametrik - tanda dada',
+};
+export const DEBUG_SHAPE_COLORS = {
+  ellipsoid: [.7, .7, .7],
+  cylinder: [0, .4, 1],
+  quillMain: [1, 1, 0],
+  quillBack: [1, .5, 0],
+  cuff: [.6, .2, 1],
+  cone: [0, 1, 1],
+  hyperbolic: [1, 0, 1],
+  bezierTube: [0, 1, 0],
+  hairLock: [1, 1, 1],
+  crescent: [1, 0, 0],
+};
+const isDebugShapesEnabled = () => {
+  try {
+    return typeof location !== 'undefined' && new URLSearchParams(location.search).get('debugShapes') === '1';
+  } catch {
+    return false;
+  }
+};
+
+// DEBUG SEMENTARA: ?debugNodes=1 mewarnai part milik node tor (merah) dan body (hijau).
+const DEBUG_NODE_COLORS = { tor: [1, 0, 0], body: [0, 1, 0] };
+const isDebugNodesEnabled = () => {
+  try {
+    return typeof location !== 'undefined' && new URLSearchParams(location.search).get('debugNodes') === '1';
+  } catch {
+    return false;
+  }
+};
+
 // Ukuran tubuh (unit model, sebelum skala 1.2 pada node model).
 const LEG_EXTRA = .25;                       // tambahan panjang kaki
 const HIP_Y = 1.45 + 2 * LEG_EXTRA;          // tinggi pinggul/torso dari tanah
@@ -175,8 +219,11 @@ export class Knuckles {
     this.arms = [];
     this.fores = [];
     this.hands = [];
+    this.debugShapes = isDebugShapesEnabled();
+    this.debugNodes = isDebugNodesEnabled();
 
     this.root = this.#buildHierarchy();
+    if (this.debugShapes) console.table(this.countPartsByShape());
     this.animation = 'idle';
     this.warmupProfile = null;
     this.reset();
@@ -184,8 +231,13 @@ export class Knuckles {
 
   /* ----------------------------- Hierarki ----------------------------- */
 
-  #upload(mesh) {
-    return this.renderer.uploadMesh(mesh);
+  // kind = jenis bentuk (kunci DEBUG_SHAPE_COLORS), disimpan untuk mode debug.
+  #meshKinds = new WeakMap();
+
+  #upload(mesh, kind) {
+    const gpuMesh = this.renderer.uploadMesh(mesh);
+    this.#meshKinds.set(gpuMesh, kind);
+    return gpuMesh;
   }
 
   #node(options = {}) {
@@ -193,7 +245,18 @@ export class Knuckles {
   }
 
   #part(mesh, color, t = [0, 0, 0], r = [0, 0, 0], s = [1, 1, 1], spec = .25) {
-    return createPart(mesh, t, s, color, { r, spec, rotationOrder: 'ZYX' });
+    return createPart(mesh, t, s, color, { r, spec, rotationOrder: 'ZYX', shapeKind: this.#meshKinds.get(mesh) });
+  }
+
+  // DEBUG: jumlah part per jenis bentuk di seluruh pohon (dihitung dari node nyata).
+  countPartsByShape() {
+    const counts = {};
+    const visit = (node) => {
+      node.parts.forEach((part) => { counts[part.shapeKind] = (counts[part.shapeKind] || 0) + 1; });
+      (node.children || []).forEach(visit);
+    };
+    visit(this.root);
+    return counts;
   }
 
   #buildHierarchy() {
@@ -233,33 +296,36 @@ export class Knuckles {
   #buildTorso(tor) {
     const { red, white } = COLORS;
     // Perut punya node sendiri agar bisa "bernapas" (di-scale).
-    const bodyMesh = this.#upload(ellipsoidMesh(.46, .7, .37));
+    const bodyMesh = this.#upload(ellipsoidMesh(.46, .7, .37), 'ellipsoid');
     this.bodyNode = tor.addChild(this.#node({ name: 'body', t: [0, .5, 0], parts: [this.#part(bodyMesh, red)] }));
 
-    const chestMesh = this.#upload(ellipsoidMesh(CHEST_RADII[0], CHEST_RADII[1], CHEST_RADII[2]));
-    const shoulderMesh = this.#upload(ellipsoidMesh(.24, .2, .24));
-    const crescentMesh = this.#upload(chestCrescentMesh(.34, .95, .07, .77, .02));
+    const chestMesh = this.#upload(ellipsoidMesh(CHEST_RADII[0], CHEST_RADII[1], CHEST_RADII[2]), 'ellipsoid');
+    const shoulderMesh = this.#upload(ellipsoidMesh(.24, .2, .24), 'ellipsoid');
+    const crescentMesh = this.#upload(chestCrescentMesh(.34, .95, .07, .77, .02), 'crescent');
     tor.parts.push(
       this.#part(chestMesh, red, CHEST_CENTER),
       this.#part(shoulderMesh, red, [-.5, .95, 0]),
       this.#part(shoulderMesh, red, [.5, .95, 0]),
       this.#part(crescentMesh, white, [0, 0, 0], [0, 0, 0], [1, 1, 1], .5),
     );
+    // DEBUG: tandai pemilik part untuk ?debugNodes=1.
+    tor.parts.forEach((part) => { part.debugNode = 'tor'; });
+    this.bodyNode.parts.forEach((part) => { part.debugNode = 'body'; });
   }
 
   #buildTail(tailG) {
-    const tailMesh = this.#upload(curveTubeMesh([[0, 0, 0], [0, -.15, -.25], [0, -.02, -.5], [0, .18, -.65]], .09, .01, [1, 0, 0]));
+    const tailMesh = this.#upload(curveTubeMesh([[0, 0, 0], [0, -.15, -.25], [0, -.02, -.5], [0, .18, -.65]], .09, .01, [1, 0, 0]), 'bezierTube');
     tailG.parts.push(this.#part(tailMesh, COLORS.red));
   }
 
   // Kepala, moncong, hidung, mulut (kurva 3D), mata, kelopak, dan duri samping.
   #buildFace(head) {
     const { red, redDark, tan, white, black, purple, mouth } = COLORS;
-    const headMesh = this.#upload(ellipsoidMesh(HEAD_RADII[0], HEAD_RADII[1], HEAD_RADII[2]));
-    const muzzleUpperMesh = this.#upload(ellipsoidMesh(.6, .42, .3));
-    const muzzleLowerMesh = this.#upload(ellipsoidMesh(.46, .32, .38));
-    const noseMesh = this.#upload(ellipsoidMesh(.11, .09, .09));
-    const mouthMesh = this.#upload(curveTubeMesh([[-.34, 0, .8], [-.15, -.1, .92], [.15, -.13, .92], [.42, .2, .8]], .028, .028, [0, 0, 1]));
+    const headMesh = this.#upload(ellipsoidMesh(HEAD_RADII[0], HEAD_RADII[1], HEAD_RADII[2]), 'ellipsoid');
+    const muzzleUpperMesh = this.#upload(ellipsoidMesh(.6, .42, .3), 'ellipsoid');
+    const muzzleLowerMesh = this.#upload(ellipsoidMesh(.46, .32, .38), 'ellipsoid');
+    const noseMesh = this.#upload(ellipsoidMesh(.11, .09, .09), 'ellipsoid');
+    const mouthMesh = this.#upload(curveTubeMesh([[-.34, 0, .8], [-.15, -.1, .92], [.15, -.13, .92], [.42, .2, .8]], .028, .028, [0, 0, 1]), 'bezierTube');
     head.parts.push(
       this.#part(headMesh, red, [0, HEAD_CENTER_Y, 0]),
       this.#part(muzzleUpperMesh, tan, [0, .28, .5]),
@@ -268,11 +334,11 @@ export class Knuckles {
       this.#part(mouthMesh, mouth),
     );
 
-    const eyeWhiteMesh = this.#upload(ellipsoidMesh(.23, .3, .1));
-    const eyeIrisMesh = this.#upload(ellipsoidMesh(.12, .2, .05));
-    const eyePupilMesh = this.#upload(ellipsoidMesh(.055, .12, .03));
-    const eyeHighlightMesh = this.#upload(ellipsoidMesh(.028, .035, .015));
-    const eyelidMesh = this.#upload(ellipsoidMesh(.32, .13, .15));
+    const eyeWhiteMesh = this.#upload(ellipsoidMesh(.23, .3, .1), 'ellipsoid');
+    const eyeIrisMesh = this.#upload(ellipsoidMesh(.12, .2, .05), 'ellipsoid');
+    const eyePupilMesh = this.#upload(ellipsoidMesh(.055, .12, .03), 'ellipsoid');
+    const eyeHighlightMesh = this.#upload(ellipsoidMesh(.028, .035, .015), 'ellipsoid');
+    const eyelidMesh = this.#upload(ellipsoidMesh(.32, .13, .15), 'ellipsoid');
 
     for (const s of [-1, 1]) {
       const eyeNode = head.addChild(this.#node({ name: s > 0 ? 'eyeR' : 'eyeL', t: [0, .62, 0] }));
@@ -284,8 +350,8 @@ export class Knuckles {
       );
       this.eyes.push(eyeNode);
 
-      const sideQuillOuter = this.#upload(curveTubeMesh([[s * .7, .8, .15], [s * 1.0, .65, .1], [s * .95, .05, -.05], [s * .82, -.45, -.25]], .22, .02, [1, 0, 0]));
-      const sideQuillInner = this.#upload(curveTubeMesh([[s * .62, .55, .45], [s * .9, .42, .4], [s * .88, -.05, .3], [s * .78, -.4, .2]], .14, .015, [1, 0, 0]));
+      const sideQuillOuter = this.#upload(curveTubeMesh([[s * .7, .8, .15], [s * 1.0, .65, .1], [s * .95, .05, -.05], [s * .82, -.45, -.25]], .22, .02, [1, 0, 0]), 'bezierTube');
+      const sideQuillInner = this.#upload(curveTubeMesh([[s * .62, .55, .45], [s * .9, .42, .4], [s * .88, -.05, .3], [s * .78, -.4, .2]], .14, .015, [1, 0, 0]), 'bezierTube');
       head.parts.push(
         this.#part(eyelidMesh, red, [s * .3, .84, .68], [0, 0, s * .35]),
         this.#part(sideQuillOuter, red, [0, 0, 0], [0, 0, 0], [1, 1, 1], .3),
@@ -311,7 +377,7 @@ export class Knuckles {
     const mainHeights = [1.6, 1.8, 1.95, 1.8, 1.6];
     const mainYs = [.7, .85, .9, .85, .7];
     [-.5, -.25, 0, .25, .5].forEach((x, i) => {
-      const mesh = this.#upload(paraboloidMesh(.3, .26, mainHeights[i]));
+      const mesh = this.#upload(paraboloidMesh(.3, .26, mainHeights[i]), 'quillMain');
       addQuill(`quillMain_${i}`, mesh, [x, mainYs[i], -.35], x);
     });
 
@@ -324,7 +390,7 @@ export class Knuckles {
     ];
     let backIndex = 0;
     backRows.forEach(([z, xs, height]) => {
-      const mesh = this.#upload(paraboloidMesh(.24, .21, height));
+      const mesh = this.#upload(paraboloidMesh(.24, .21, height), 'quillBack');
       xs.forEach((x) => {
         addQuill(`quillBack_${backIndex}`, mesh, [x, headCrownY(x, z) - .05, z], x);
         backIndex += 1;
@@ -341,7 +407,7 @@ export class Knuckles {
       { x: .74, a0: 1.05, a1: -.9, len: 1.0, w: .13, th: .08, color: redDark },
     ];
     lockDefinitions.forEach((lock) => {
-      const mesh = this.#upload(hairLockMesh(lock.x, lock.a0, lock.a1, lock.len, lock.w, lock.th));
+      const mesh = this.#upload(hairLockMesh(lock.x, lock.a0, lock.a1, lock.len, lock.w, lock.th), 'hairLock');
       head.parts.push(this.#part(mesh, lock.color, [0, 0, 0], [0, 0, 0], [1, 1, 1], .3));
     });
   }
@@ -349,19 +415,19 @@ export class Knuckles {
   // Rantai lengan: arm (bahu) -> fore (siku) -> hand (sarung tinju berduri).
   #buildArms(tor) {
     const { red, white, gloveShade } = COLORS;
-    const shoulderJointMesh = this.#upload(ellipsoidMesh(ARM_RADIUS * 1.1, ARM_RADIUS * 1.1, ARM_RADIUS * 1.1));
-    const upperArmMesh = this.#upload(cylinderMesh(ARM_RADIUS, UPPER_ARM_LENGTH));
-    const elbowJointMesh = this.#upload(ellipsoidMesh(ARM_RADIUS, ARM_RADIUS, ARM_RADIUS));
-    const forearmMesh = this.#upload(cylinderMesh(ARM_RADIUS, FOREARM_LENGTH));
-    const wristJointMesh = this.#upload(ellipsoidMesh(ARM_RADIUS, ARM_RADIUS * 1.3, ARM_RADIUS));
+    const shoulderJointMesh = this.#upload(ellipsoidMesh(ARM_RADIUS * 1.1, ARM_RADIUS * 1.1, ARM_RADIUS * 1.1), 'ellipsoid');
+    const upperArmMesh = this.#upload(cylinderMesh(ARM_RADIUS, UPPER_ARM_LENGTH), 'cylinder');
+    const elbowJointMesh = this.#upload(ellipsoidMesh(ARM_RADIUS, ARM_RADIUS, ARM_RADIUS), 'ellipsoid');
+    const forearmMesh = this.#upload(cylinderMesh(ARM_RADIUS, FOREARM_LENGTH), 'cylinder');
+    const wristJointMesh = this.#upload(ellipsoidMesh(ARM_RADIUS, ARM_RADIUS * 1.3, ARM_RADIUS), 'ellipsoid');
 
-    const cuffMesh = this.#upload(paraboloidMesh(.31, .31, .3));
-    const fistMesh = this.#upload(ellipsoidMesh(.38, .42, .4));
-    const fingerOuterMesh = this.#upload(ellipsoidMesh(.1, .15, .075));
-    const fingerMiddleMesh = this.#upload(ellipsoidMesh(.1, .16, .075));
-    const fingerInnerMesh = this.#upload(ellipsoidMesh(.1, .14, .075));
-    const thumbMesh = this.#upload(ellipsoidMesh(.11, .08, .17));
-    const spikeMesh = this.#upload(coneMesh(.1, .3));
+    const cuffMesh = this.#upload(paraboloidMesh(.31, .31, .3), 'cuff');
+    const fistMesh = this.#upload(ellipsoidMesh(.38, .42, .4), 'ellipsoid');
+    const fingerOuterMesh = this.#upload(ellipsoidMesh(.1, .15, .075), 'ellipsoid');
+    const fingerMiddleMesh = this.#upload(ellipsoidMesh(.1, .16, .075), 'ellipsoid');
+    const fingerInnerMesh = this.#upload(ellipsoidMesh(.1, .14, .075), 'ellipsoid');
+    const thumbMesh = this.#upload(ellipsoidMesh(.11, .08, .17), 'ellipsoid');
+    const spikeMesh = this.#upload(coneMesh(.1, .3), 'cone');
 
     for (const s of [-1, 1]) {
       const arm = this.#node({ name: s > 0 ? 'armR' : 'armL', t: [s * .6, .85, 0], r: [0, 0, s * .15] });
@@ -401,23 +467,23 @@ export class Knuckles {
   // Rantai kaki: leg (pinggul) -> knee (lutut) -> foot (kaus kaki + sepatu).
   #buildLegs(model) {
     const { red, sockGreen, yellow, black, soleWhite, soleGray } = COLORS;
-    const hipJointMesh = this.#upload(ellipsoidMesh(.18, .2, .18));
-    const upperLegMesh = this.#upload(cylinderMesh(.15, UPPER_LEG_LENGTH));
-    const kneeJointMesh = this.#upload(ellipsoidMesh(.15, .15, .15));
-    const lowerLegMesh = this.#upload(cylinderMesh(.12, LOWER_LEG_LENGTH));
+    const hipJointMesh = this.#upload(ellipsoidMesh(.18, .2, .18), 'ellipsoid');
+    const upperLegMesh = this.#upload(cylinderMesh(.15, UPPER_LEG_LENGTH), 'cylinder');
+    const kneeJointMesh = this.#upload(ellipsoidMesh(.15, .15, .15), 'ellipsoid');
+    const lowerLegMesh = this.#upload(cylinderMesh(.12, LOWER_LEG_LENGTH), 'cylinder');
 
-    const sockMesh = this.#upload(cylinderMesh(.24, .58));
-    const shoeRedMesh = this.#upload(ellipsoidMesh(.52, .29, .74));
-    const shoeYellowMesh = this.#upload(ellipsoidMesh(.53, .29, .37));
-    const soleWhiteMesh = this.#upload(cylinderMesh(1, .08));
-    const soleGrayMesh = this.#upload(cylinderMesh(1, .05));
-    const soleTreadMesh = this.#upload(hyperbolicParaboloidMesh(.42, .64, .02));
+    const sockMesh = this.#upload(cylinderMesh(.24, .58), 'cylinder');
+    const shoeRedMesh = this.#upload(ellipsoidMesh(.52, .29, .74), 'ellipsoid');
+    const shoeYellowMesh = this.#upload(ellipsoidMesh(.53, .29, .37), 'ellipsoid');
+    const soleWhiteMesh = this.#upload(cylinderMesh(1, .08), 'cylinder');
+    const soleGrayMesh = this.#upload(cylinderMesh(1, .05), 'cylinder');
+    const soleTreadMesh = this.#upload(hyperbolicParaboloidMesh(.42, .64, .02), 'hyperbolic');
 
     // Tali sepatu: 4 ellipsoid pipih yang mengikuti lengkung sepatu.
     const laces = [.34, .44, .54, .64].map((z) => {
       const k = Math.sqrt(Math.max(0, 1 - ((z - .2) / .74) ** 2));
       return {
-        mesh: this.#upload(ellipsoidMesh(.3 * k, .035, .04)),
+        mesh: this.#upload(ellipsoidMesh(.3 * k, .035, .04), 'ellipsoid'),
         t: [0, -.55 + .29 * k - .01, z],
       };
     });
@@ -820,7 +886,8 @@ export class Knuckles {
       uView: context.viewMatrix,
       uProj: context.projectionMatrix,
       uNorm: normalMatrix(world),
-      uColor: part.color,
+      uColor: (this.debugNodes && DEBUG_NODE_COLORS[part.debugNode])
+        || (this.debugShapes && DEBUG_SHAPE_COLORS[part.shapeKind]) || part.color,
       uCam: context.cameraPosition,
       uSpec: part.spec !== undefined ? part.spec : 0.25,
     }));

@@ -51,6 +51,9 @@ export class MyObject {
     this.parts = options.parts || [];
     this.children = options.children || [];
     this.visible = options.visible === undefined ? true : options.visible;
+    // partsVisible = false: part milik node ini saja yang tidak digambar;
+    // matriks tetap dihitung dan anak-anaknya tetap ditelusuri.
+    this.partsVisible = options.partsVisible === undefined ? true : options.partsVisible;
   }
 
   addChild(child) {
@@ -89,8 +92,10 @@ export class MyObject {
   traverse(parentWorld, visit) {
     if (!this.visible) return;
     const world = Matrix4.multiply(parentWorld, this.localMatrix());
-    for (const part of this.parts) {
-      visit(this, world, part, this.partMatrix(world, part));
+    if (this.partsVisible) {
+      for (const part of this.parts) {
+        visit(this, world, part, this.partMatrix(world, part));
+      }
     }
     for (const child of this.children) {
       child.traverse(world, visit);
