@@ -487,7 +487,6 @@ export class Sonic {
       uColor: part.color,
       uCam: context.cameraPosition,
       uLight: light,
-      uMode: part.mode,
       uSpec: part.spec,
       uShin: part.shin,
       uRim: part.rim,
