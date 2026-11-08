@@ -16,7 +16,15 @@
       <div id="status" class="status" aria-live="polite">Memuat Sonic...</div>
     </header>
     <div class="workspace">
-      <div class="stage"><canvas id="gl" aria-label="Tampilan model Sonic 3D"></canvas></div>
+      <div class="stage">
+        <canvas id="gl" aria-label="Tampilan model Sonic 3D"></canvas>
+        <svg id="axis-gizmo" class="axis-gizmo" viewBox="0 0 100 100" role="img" aria-label="Sumbu koordinat 3D: X merah, Y hijau, Z biru">
+          <circle cx="50" cy="50" r="3" class="axis-origin" />
+          <g class="axis axis-x"><line x1="50" y1="50" x2="50" y2="50"/><text x="50" y="50">X</text></g>
+          <g class="axis axis-y"><line x1="50" y1="50" x2="50" y2="50"/><text x="50" y="50">Y</text></g>
+          <g class="axis axis-z"><line x1="50" y1="50" x2="50" y2="50"/><text x="50" y="50">Z</text></g>
+        </svg>
+      </div>
       <aside>
         <section>
           <h2>Mode demonstrasi</h2>
@@ -24,9 +32,7 @@
             <button data-animation="idle" class="active">Idle</button>
             <button data-animation="translate">Lari maju</button>
             <button data-animation="rotate">Spin Bola</button>
-            <button data-animation="scale">Scale</button>
             <button data-animation="arbitrary">Salto / Arbitrary</button>
-            <button data-animation="hierarchical">Hierarchical</button>
           </div>
         </section>
         <section>

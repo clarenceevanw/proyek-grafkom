@@ -17,6 +17,7 @@ const canvas = document.getElementById('gl');
 const status = document.getElementById('status');
 const modeTitle = document.getElementById('mode-title');
 const modeCopy = document.getElementById('mode-copy');
+const axisGizmo = document.getElementById('axis-gizmo');
 const gl = createWebGLContext(canvas, status);
 
 const renderer = new Renderer(gl);
@@ -30,9 +31,7 @@ const animationInfo = {
   idle: ['Idle', 'Gerakan dasar untuk membandingkan pose Sonic tanpa perpindahan besar.'],
   translate: ['Lari maju / Translate', 'Sonic berlari ke depan pada sumbu Z dengan ayunan tangan-kaki cepat dan pantulan badan. Jarak geraknya dibatasi agar tetap terlihat di viewer.'],
   rotate: ['Spin Bola / Rotasi', 'Sonic menggulung menjadi bola, berputar satu kali di tempat pada sumbu X, lalu membuka kembali dan kembali idle.'],
-  scale: ['Scale', 'Seluruh model Sonic membesar dan mengecil secara seragam; proporsi tubuh tetap sama.'],
   arbitrary: ['Salto / Arbitrary Axis', 'Sonic melompat dan melakukan satu salto pada sumbu diagonal tetap (1,1,0) yang dinormalisasi. Dilihat dari depan, sumbu ini memiringkan putaran agar lebih mudah terlihat. Lintasan lompat adalah translasi; saltonya rotasi Rodrigues pada sumbu yang bukan X, Y, atau Z. Setelah mendarat, Sonic kembali idle.'],
-  hierarchical: ['Hierarchical', 'Sendi bergerak sebagai rantai parent-child: misalnya gerak bahu membawa lengan, siku, dan tangan, sedangkan gerak siku hanya memengaruhi bagian di bawahnya.'],
 };
 
 // Animasi Sonic dihitung dari waktu sejak mode dimulai, jadi jam di-restart.
@@ -44,6 +43,24 @@ function setAnimation(mode) {
 }
 
 const VIEW_ANGLES = { front: [0, 0], back: [Math.PI, 0], side: [Math.PI / 2, 0] };
+
+function updateAxisGizmo() {
+  const { yaw, pitch } = camera;
+  const axes = [
+    { id: 'x', screenX: Math.cos(yaw), screenY: Math.sin(yaw) * Math.sin(pitch) },
+    { id: 'y', screenX: 0, screenY: -Math.cos(pitch) },
+    { id: 'z', screenX: -Math.sin(yaw), screenY: Math.cos(yaw) * Math.sin(pitch) },
+  ];
+  for (const axis of axes) {
+    const group = axisGizmo.querySelector(`.axis-${axis.id}`);
+    const endX = 50 + axis.screenX * 31;
+    const endY = 50 + axis.screenY * 31;
+    group.querySelector('line').setAttribute('x2', endX);
+    group.querySelector('line').setAttribute('y2', endY);
+    group.querySelector('text').setAttribute('x', endX + (Math.abs(axis.screenX) < .1 ? 0 : Math.sign(axis.screenX) * 6));
+    group.querySelector('text').setAttribute('y', endY + (Math.abs(axis.screenY) < .1 ? 0 : Math.sign(axis.screenY) * 6));
+  }
+}
 
 function setView(view) {
   if (VIEW_ANGLES[view]) [camera.yaw, camera.pitch] = VIEW_ANGLES[view];
@@ -61,6 +78,7 @@ camera.attach(canvas, { onDragStart: () => setActiveButton('view', 'free') });
 startRenderLoop((now) => {
   const dt = clock.tick(now);
   resizeCanvas(gl, canvas);
+  updateAxisGizmo();
   sonic.update(dt, clock.elapsed);
 
   gl.enable(gl.DEPTH_TEST);
