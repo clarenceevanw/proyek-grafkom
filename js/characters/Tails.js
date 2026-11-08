@@ -239,10 +239,7 @@ export class Tails {
       });
 
       // Thumb
-      const thumb = this.#node(palm, `Thumb${s}`, [s * -0.088, 0.038, 0.078], [0.2, s * -0.4, s * -1.1]);
-      this.#part(thumb, 'sphere',   [0, 0, 0],      [0.052, 0.052, 0.052], COLORS.white, 0.22);
-      this.#part(thumb, 'cylinder', [0, -0.048, 0], [0.046, 0.088, 0.046], COLORS.white, 0.22);
-      this.#part(thumb, 'sphere',   [0, -0.092, 0], [0.046, 0.046, 0.046], COLORS.white, 0.22);
+      this.#part(palm, 'sphere', [s * 0.11, 0.015, 0.045], [0.050, 0.055, 0.050], COLORS.white, 0.22);
 
       this.joints.arms[s] = { sh: up, el, s };
     }
