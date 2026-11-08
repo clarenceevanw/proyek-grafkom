@@ -5,13 +5,13 @@
 :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: var(--text); }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--page-bg); }
-main { min-height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 16px; padding: 18px clamp(12px, 2.2vw, 32px); }
+main { min-height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 14px; padding: 18px clamp(12px, 2.2vw, 32px); }
 header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 h1 { margin: 0; font-size: clamp(1.2rem, 2vw, 1.7rem); font-weight: 700; letter-spacing: -.03em; color: var(--title); }
 header p { margin: 4px 0 0; color: #9aa7be; font-size: .86rem; }
-.status { padding: 8px 14px; border: 1px solid var(--status-border); border-radius: 999px; background: var(--status-bg); color: var(--status-text); font-size: .8rem; white-space: nowrap; }
+.status { padding: 7px 10px; border: 1px solid var(--status-border); border-radius: 4px; background: var(--status-bg); color: var(--status-text); font: 500 .76rem ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 350px); gap: 16px; }
-.stage { min-height: 0; overflow: hidden; border: 1px solid var(--stage-border); border-radius: 16px; background: var(--stage-bg); box-shadow: 0 18px 55px #0008; position: relative; }
+.stage { min-height: 0; overflow: hidden; border: 1px solid var(--stage-border); border-radius: 8px; background: var(--stage-bg); position: relative; }
 .axis-gizmo { position: absolute; z-index: 1; top: 14px; right: 14px; width: 92px; height: 92px; overflow: visible; pointer-events: none; }
 .axis-origin { fill: #f4f7ff; stroke: #17243b; stroke-width: 1.5; }
 .axis line { stroke-width: 3; stroke-linecap: round; }
@@ -21,16 +21,16 @@ header p { margin: 4px 0 0; color: #9aa7be; font-size: .86rem; }
 .axis-z line { stroke: #438cff; }
 canvas { display: block; width: 100%; height: 100%; min-height: 480px; touch-action: none; cursor: grab; }
 canvas:active { cursor: grabbing; }
-aside { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid var(--panel-border); border-radius: 16px; background: var(--panel-bg); max-height: calc(100vh - 100px); overflow-y: auto; }
+aside { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); max-height: calc(100vh - 100px); overflow-y: auto; }
 h2 { margin: 0 0 8px; color: #a4b3cf; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
 .button-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-button { min-height: 38px; padding: 7px 9px; border: 1px solid var(--button-border); border-radius: 8px; background: var(--button-bg); color: inherit; font: inherit; font-size: .82rem; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
+button { min-height: 38px; padding: 7px 9px; border: 1px solid var(--button-border); border-radius: 5px; background: var(--button-bg); color: inherit; font: inherit; font-size: .82rem; cursor: pointer; transition: background .15s, border-color .15s; }
 button:hover { background: var(--button-hover-bg); border-color: var(--button-hover-border); }
 button:active { transform: translateY(1px); }
 button.active { background: var(--accent); border-color: var(--accent-border); color: #ffffff; font-weight: 600; }
 button.primary { background: #f2f5fb; border-color: #f2f5fb; color: #12141c; font-weight: 650; }
 button.primary:hover { background: #dce3f0; }
-.description { min-height: 96px; padding: 12px; border-radius: 10px; background: #090a10; border: 1px solid #232230; color: #b2c0d8; font-size: .83rem; line-height: 1.5; }
+.description { min-height: 96px; padding: 12px; border-radius: 6px; background: #0c111b; border: 1px solid var(--panel-border); color: #b2c0d8; font-size: .83rem; line-height: 1.5; }
 .description strong { display: block; margin-bottom: 4px; color: #fff; }
 .help { margin: auto 0 0; color: #8391ab; font-size: .76rem; line-height: 1.45; }
 /* Checklist node scene graph (knuckles-viewer). */
@@ -55,9 +55,9 @@ button.primary:hover { background: #dce3f0; }
   --text: #f0f3fa;
   --page-bg: #0b0d14;
   --title: #ff526c;
-  --status-border: #3c2430; --status-bg: #1c141d; --status-text: #e8b0be;
-  --stage-border: #361f2b; --stage-bg: #08090f;
-  --panel-border: #2d2638; --panel-bg: #13141f;
+  --status-border: #43303a; --status-bg: #17141a; --status-text: #e8b0be;
+  --stage-border: #302b35; --stage-bg: #08090f;
+  --panel-border: #2d2a34; --panel-bg: #11131b;
   --button-border: #433952; --button-bg: #201e30;
   --button-hover-bg: #322d4a; --button-hover-border: #83679d;
   --accent: #d61a38; --accent-border: #ff6882;
@@ -67,9 +67,9 @@ button.primary:hover { background: #dce3f0; }
   --text: #f0f3fa;
   --page-bg: #0a0d14;
   --title: #ff9d1c;
-  --status-border: #4a341b; --status-bg: #1c1611; --status-text: #ffd699;
-  --stage-border: #36291a; --stage-bg: radial-gradient(circle at 50% 40%, #1e2638 0%, #080c14 85%);
-  --panel-border: #2d2938; --panel-bg: #12141f;
+  --status-border: #4a3a24; --status-bg: #191611; --status-text: #ffd699;
+  --stage-border: #302d35; --stage-bg: #080c14;
+  --panel-border: #2d2a34; --panel-bg: #11131b;
   --button-border: #443c50; --button-bg: #1f202e;
   --button-hover-bg: #352f44; --button-hover-border: #9d7b57;
   --accent: #e07a10; --accent-border: #ffb752;
@@ -78,34 +78,19 @@ button.primary:hover { background: #dce3f0; }
 /* Sonic memakai tema biru dengan latar canvas langit dan ukuran sedikit lebih longgar. */
 .theme-sonic {
   --text: #e7efff;
-  --page-bg: none;
+  --page-bg: #0b0d14;
   --title: #e7efff;
-  --status-border: #314563; --status-bg: none; --status-text: #b8c8e4;
+  --status-border: #314563; --status-bg: #111c2e; --status-text: #b8c8e4;
   --stage-border: #314563; --stage-bg: #c8eaff;
-  --panel-border: #263750; --panel-bg: #111c2e;
-  --button-border: #405777; --button-bg: #1b3150;
-  --button-hover-bg: #294878; --button-hover-border: #7da5dc;
+  --panel-border: #263750; --panel-bg: #111821;
+  --button-border: #405777; --button-bg: #172333;
+  --button-hover-bg: #203650; --button-hover-border: #7da5dc;
   --accent: #2467ff; --accent-border: #a8c8ff;
 }
-.theme-sonic main { gap: 18px; padding: 20px clamp(14px, 2.4vw, 36px); }
-.theme-sonic header p { margin: 5px 0 0; color: #9eb3d4; font-size: .88rem; }
-.theme-sonic .status { padding: 8px 12px; }
-.theme-sonic .workspace { grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); }
-.theme-sonic .stage { box-shadow: 0 18px 55px #0005; }
-.theme-sonic canvas { min-height: 440px; }
-.theme-sonic aside { gap: 14px; max-height: none; overflow-y: visible; }
-.theme-sonic h2 { margin: 0 0 9px; color: #9eb3d4; }
-.theme-sonic .button-grid { gap: 8px; }
-.theme-sonic button { min-height: 40px; padding: 8px 10px; border-radius: 9px; font-size: .83rem; }
-.theme-sonic button.active { color: inherit; font-weight: inherit; }
-.theme-sonic button.primary { background: #e7efff; border-color: #e7efff; color: #10213a; }
-.theme-sonic button.primary:hover { background: #cbdcff; }
-.theme-sonic .description { min-height: 104px; background: #0b1423; border: 0; color: #c0cde0; font-size: .84rem; line-height: 1.55; }
-.theme-sonic .help { color: #91a5c3; font-size: .78rem; line-height: 1.5; }
 @media (max-width: 760px) {
   .theme-sonic .workspace { grid-template-columns: 1fr; }
-  .theme-sonic .stage { min-height: 54vh; }
-  .theme-sonic canvas { min-height: 54vh; }
+  .theme-sonic .stage { min-height: 52vh; }
+  .theme-sonic canvas { min-height: 52vh; }
   .theme-sonic aside { display: grid; grid-template-columns: 1fr 1fr; }
   .theme-sonic aside section:last-of-type, .theme-sonic .description, .theme-sonic .help { grid-column: 1 / -1; }
   .theme-sonic .help { margin-top: 0; }
