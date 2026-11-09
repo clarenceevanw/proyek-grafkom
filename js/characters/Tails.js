@@ -284,6 +284,7 @@ export class Tails {
     };
 
     // Propeller axis vector connecting P0 [0, 0.12, -0.15] to P1 [0, -0.08, -1.15]
+    // Inisialisasi Arbitrary Axis Rotation (AA) sumbu Y-Z
     this.tailAxis = normalize3([0, -0.08 - 0.12, -1.15 - (-0.15)]);
     this.tailPropellerHub = this.#node(this.torso, 'TailPropellerHub', [0, 0.12, -0.15]);
 
@@ -403,7 +404,7 @@ export class Tails {
     const breath = Math.sin(t * 2.2);
     this.#animateBody(t, breath);
     this.#animateLegs();
-    this.#animateArms(breath);
+    this.#animateArms();
     this.#animateTails(t, safeDt);
     this.#animateBlink(t);
   }
@@ -411,31 +412,37 @@ export class Tails {
   /* ----------------------------- Animasi per bagian ----------------------------- */
 
   // Root melayang (terbang) atau memantul (jalan); torso bernapas dan condong.
+  // Translasi Torso sumbu Y dan Scaling Torso sumbu X/Z Pernapasan
   #animateBody(t, breath) {
     const { walk, fly } = this.weights;
     const flyHover = 0.68 + 0.10 * Math.sin(t * 3.5);
     const walkBob = Math.abs(Math.cos(this.walkPhase)) * 0.06;
     this.root.t[1] = fly * flyHover + walk * walkBob;
-
+    // Translasi Torso
     this.torso.t[1] = 1.05 + breath * 0.007 * (1 - fly);
     const breathScale = 1 + 0.015 * breath * (1 - fly);
+    // Scaling Torso
     this.torso.s = [breathScale, 1, breathScale];
 
     this.torso.r[0] = fly * 0.36 + walk * 0.12;
     this.torso.r[1] = walk * Math.sin(this.walkPhase) * 0.10;
     this.torso.r[2] = walk * Math.cos(this.walkPhase) * 0.04;
 
-    this.neck.r[0] = 0.03 * breath * (1 - fly) + fly * -0.22 - walk * 0.06;
+    // Translasi Leher ikut gerakan torso
+    this.neck.r[0] = 0.03 * breath * walk * (1 - fly) + fly * -0.22 - walk * 0.06;
+
+    // Rotasi Kepala sumbu Y
     this.head.r[1] = 0.14 * Math.sin(t * 0.7) * (1 - walk * 0.6) * (1 - fly * 0.8);
-    this.head.r[2] = 0.03 * Math.sin(t * 0.9 + 1) * (1 - fly);
+    this.head.r[2] = 0.03 * Math.sin(t * 0.9 + 1) * walk * (1 - fly);
     this.bangsGrp.r[0] = 0.03 * Math.sin(t * 3.0) - fly * 0.08;
 
     for (const s of [-1, 1]) {
-      this.joints.ears[s].r[0] = 0.05 + Math.sin(t * 2.8 + s) * 0.06 * (1 - fly);
+     
+      this.joints.ears[s].r[0] = 0.05 + Math.sin(t * 2.8 + s) * 0.06 * walk * (1 - fly);
     }
   }
 
-  // Kaki kanan dan kiri berselisih fase PI saat berjalan; terlipat saat terbang.
+
   #animateLegs() {
     const { walk, fly } = this.weights;
     for (const [s, phase] of [[1, this.walkPhase], [-1, this.walkPhase + Math.PI]]) {
@@ -444,7 +451,7 @@ export class Tails {
       const walkHip = -Math.sin(phase) * 0.65;
       const walkKnee = Math.max(0, Math.cos(phase)) * 0.92;
       const walkFoot = -(walkHip + walkKnee) * 0.68;
-
+      //mode jalan dia rotasi sumbu X 
       const hipX = walkHip * walk + 0.28 * fly;
       const kneeX = (walkKnee + 0.02) * walk + 0.65 * fly;
       const footX = walkFoot * walk + 0.52 * fly;
@@ -456,17 +463,17 @@ export class Tails {
   }
 
   // Pose idle dicampur ke pose jalan (lengan berlawanan kaki), lalu ke pose terbang.
-  #animateArms(breath) {
+  #animateArms() {
     const { walk, fly } = this.weights;
     for (const s of [-1, 1]) {
       const arm = this.joints.arms[s];
-      let rx = 0.35 + 0.03 * breath;
+      let rx = 0.35;
       const ry = s * -0.34;
       let rz = s * 0.42;
       let elx = -1.62;
       const ely = s * 0.34;
       const elz = s * -0.16;
-
+      //mode jalan dia rotasi sumbu X
       rx += (s * Math.sin(this.walkPhase) * 0.72 - rx) * walk;
       rz += (s * 0.32 - rz) * walk;
       elx += (-1.10 - elx) * walk;
@@ -484,13 +491,14 @@ export class Tails {
   // baling-baling saat terbang; saat diam kembali halus ke sudut kelipatan 2*PI.
   #animateTails(t, dt) {
     const { walk, fly } = this.weights;
-    this.tailSpin += dt * (fly * 32.0 + walk * 6.0);
+    this.tailSpin += dt * (fly * 32.0 + walk * 6.0); //kecepatan putar ekor kalau fly / walk
     if (fly < 0.02 && walk < 0.02) {
       const restAngle = Math.round(this.tailSpin / (Math.PI * 2)) * Math.PI * 2;
       this.tailSpin += (restAngle - this.tailSpin) * Math.min(1, dt * 6);
     }
     this.tailPropellerHub.aa = { a: this.tailAxis, ang: this.tailSpin };
 
+    //Rotasi Ekor: bob rotasi sumbu X (naik-turun) dan wag rotasi sumbu Y (kiri-kanan) untuk kedua ekor
     const wag = Math.sin(t * 2.3) * 0.08 * (1 - fly);
     const bob = 0.04 * Math.sin(t * 3.0) * (1 - fly);
     this.joints.tails[1].r = [bob, wag, 0];
@@ -498,11 +506,13 @@ export class Tails {
   }
 
   // Kedipan pada interval acak 2.4 - 5.0 detik.
+
   #animateBlink(t) {
     if (t > this.nextBlink) {
       this.blinkStart = t;
       this.nextBlink = t + 2.4 + Math.random() * 2.6;
     }
+    //Scaling mata sumbu Y
     const blinkProgress = (t - this.blinkStart) / 0.16;
     const eyeScaleY = blinkProgress >= 0 && blinkProgress <= 1 ? 1 - 0.92 * Math.sin(Math.PI * blinkProgress) : 1;
     this.eyes.forEach((eye) => { eye.s = [1, eyeScaleY, 1]; });
