@@ -1,17 +1,56 @@
 /* Tampilan bersama untuk sonic-viewer, knuckles-viewer, dan tails-viewer.
- * Layout sama untuk semua; warna diatur lewat variabel CSS pada kelas tema
- * di <html>: theme-knuckles, theme-tails, atau theme-sonic. */
+ * Fullscreen canvas dengan floating HUD overlay.
+ * Tema warna diatur lewat variabel CSS di <html>: theme-knuckles, theme-tails, atau theme-sonic. */
 
 :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: var(--text); }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--page-bg); }
-main { min-height: 100vh; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 14px; padding: 18px clamp(12px, 2.2vw, 32px); }
-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-h1 { margin: 0; font-size: clamp(1.2rem, 2vw, 1.7rem); font-weight: 700; letter-spacing: -.03em; color: var(--title); }
-header p { margin: 4px 0 0; color: #9aa7be; font-size: .86rem; }
-.status { padding: 7px 10px; border: 1px solid var(--status-border); border-radius: 4px; background: var(--status-bg); color: var(--status-text); font: 500 .76rem ui-monospace, SFMono-Regular, Consolas, monospace; white-space: nowrap; }
-.workspace { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 350px); gap: 16px; }
-.stage { min-height: 0; overflow: hidden; border: 1px solid var(--stage-border); border-radius: 8px; background: var(--stage-bg); position: relative; }
+body { margin: 0; overflow: hidden; width: 100vw; height: 100vh; background: var(--page-bg); }
+
+.stage { position: fixed; inset: 0; overflow: hidden; }
+canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; }
+canvas:active { cursor: grabbing; }
+
+/* HUD status (pojok kiri atas) */
+.hud-status { position: fixed; top: 14px; left: 14px; z-index: 10;
+  padding: 6px 10px; border-radius: 5px; background: rgba(10,14,25,.72);
+  border: 1px solid var(--status-border); color: var(--status-text);
+  font: 500 .76rem ui-monospace, SFMono-Regular, Consolas, monospace;
+  pointer-events: none; }
+
+
+/* HUD keybind hint (pojok kanan bawah) */
+.hud-keys { position: fixed; bottom: 14px; right: 14px; z-index: 10;
+  padding: 7px 11px; border-radius: 5px; background: rgba(10,14,25,.65);
+  border: 1px solid var(--panel-border); color: #8391ab;
+  font: .73rem ui-monospace, SFMono-Regular, Consolas, monospace;
+  line-height: 1.6; pointer-events: none; }
+
+/* Checklist dropdown (knuckles-viewer) */
+.hud-checklist { position: fixed; top: 14px; right: 116px; z-index: 20; }
+.hud-checklist-toggle { padding: 7px 13px; border-radius: 5px; border: 1px solid var(--button-border);
+  background: rgba(10,14,25,.85); color: inherit; font: inherit; font-size: .82rem;
+  cursor: pointer; transition: background .15s, border-color .15s; }
+.hud-checklist-toggle:hover { background: var(--button-hover-bg); border-color: var(--button-hover-border); }
+.hud-checklist-panel { display: none; position: absolute; right: 0; top: 100%; margin-top: 6px; padding: 10px 12px; border-radius: 6px;
+  background: rgba(10,14,25,.92); border: 1px solid var(--panel-border); min-width: 220px;
+  max-height: 60vh; overflow-y: auto; }
+.hud-checklist-panel.open { display: block; }
+.hud-checklist-panel .bulk-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.hud-checklist-panel .bulk-row button { flex: 1; min-height: 28px; padding: 3px 7px;
+  border: 1px solid var(--button-border); border-radius: 4px;
+  background: var(--button-bg); color: inherit; font: inherit; font-size: .76rem; cursor: pointer; }
+.hud-checklist-panel .bulk-row button:hover { background: var(--button-hover-bg); }
+.node-list { display: flex; flex-direction: column; gap: 2px; font-size: .8rem; }
+.node-row { display: flex; align-items: center; gap: 6px; min-height: 28px; }
+.node-row label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.node-row input { accent-color: var(--accent); }
+.node-row .node-count { color: #8391ab; font-size: .72rem; white-space: nowrap; }
+.node-row button { min-height: 24px; padding: 2px 7px; font-size: .72rem;
+  border: 1px solid var(--button-border); border-radius: 3px;
+  background: var(--button-bg); color: inherit; cursor: pointer; }
+.node-row button:hover { background: var(--button-hover-bg); }
+
+/* Sumbu koordinat 3D (gizmo) */
 .axis-gizmo { position: absolute; z-index: 1; top: 14px; right: 14px; width: 92px; height: 92px; overflow: visible; pointer-events: none; }
 .axis-origin { fill: #f4f7ff; stroke: #17243b; stroke-width: 1.5; }
 .axis line { stroke-width: 3; stroke-linecap: round; }
@@ -19,35 +58,6 @@ header p { margin: 4px 0 0; color: #9aa7be; font-size: .86rem; }
 .axis-x line { stroke: #ff5668; }
 .axis-y line { stroke: #31c878; }
 .axis-z line { stroke: #438cff; }
-canvas { display: block; width: 100%; height: 100%; min-height: 480px; touch-action: none; cursor: grab; }
-canvas:active { cursor: grabbing; }
-aside { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-bg); max-height: calc(100vh - 100px); overflow-y: auto; }
-h2 { margin: 0 0 8px; color: #a4b3cf; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
-.button-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
-button { min-height: 38px; padding: 7px 9px; border: 1px solid var(--button-border); border-radius: 5px; background: var(--button-bg); color: inherit; font: inherit; font-size: .82rem; cursor: pointer; transition: background .15s, border-color .15s; }
-button:hover { background: var(--button-hover-bg); border-color: var(--button-hover-border); }
-button:active { transform: translateY(1px); }
-button.active { background: var(--accent); border-color: var(--accent-border); color: #ffffff; font-weight: 600; }
-button.primary { background: #f2f5fb; border-color: #f2f5fb; color: #12141c; font-weight: 650; }
-button.primary:hover { background: #dce3f0; }
-.description { min-height: 96px; padding: 12px; border-radius: 6px; background: #0c111b; border: 1px solid var(--panel-border); color: #b2c0d8; font-size: .83rem; line-height: 1.5; }
-.description strong { display: block; margin-bottom: 4px; color: #fff; }
-.help { margin: auto 0 0; color: #8391ab; font-size: .76rem; line-height: 1.45; }
-/* Checklist node scene graph (knuckles-viewer). */
-.node-checklist summary { margin-bottom: 8px; color: #a4b3cf; font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
-.node-list { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; font-size: .8rem; }
-.node-row { display: flex; align-items: center; gap: 6px; min-height: 28px; }
-.node-row label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.node-row input { accent-color: var(--accent); }
-.node-row .node-count { color: #8391ab; font-size: .72rem; white-space: nowrap; }
-.node-row button { min-height: 24px; padding: 2px 7px; font-size: .72rem; }
-@media (max-width: 760px) {
-  main { min-height: 100dvh; grid-template-rows: auto auto; }
-  .workspace { grid-template-columns: 1fr; }
-  .stage { min-height: 52vh; }
-  canvas { min-height: 52vh; }
-  aside { max-height: none; }
-}
 
 /* ------------------------------ Tema warna ------------------------------ */
 
@@ -75,28 +85,15 @@ button.primary:hover { background: #dce3f0; }
   --accent: #e07a10; --accent-border: #ffb752;
 }
 
-/* Sonic memakai tema biru dengan latar canvas langit dan ukuran sedikit lebih longgar. */
+/* Sonic memakai tema biru gelap serasi dengan Tails dan Knuckles */
 .theme-sonic {
   --text: #e7efff;
   --page-bg: #0b0d14;
   --title: #e7efff;
   --status-border: #314563; --status-bg: #111c2e; --status-text: #b8c8e4;
-  --stage-border: #314563; --stage-bg: #c8eaff;
+  --stage-border: #314563; --stage-bg: #080c14;
   --panel-border: #263750; --panel-bg: #111821;
   --button-border: #405777; --button-bg: #172333;
   --button-hover-bg: #203650; --button-hover-border: #7da5dc;
   --accent: #2467ff; --accent-border: #a8c8ff;
-}
-@media (max-width: 760px) {
-  .theme-sonic .workspace { grid-template-columns: 1fr; }
-  .theme-sonic .stage { min-height: 52vh; }
-  .theme-sonic canvas { min-height: 52vh; }
-  .theme-sonic aside { display: grid; grid-template-columns: 1fr 1fr; }
-  .theme-sonic aside section:last-of-type, .theme-sonic .description, .theme-sonic .help { grid-column: 1 / -1; }
-  .theme-sonic .help { margin-top: 0; }
-}
-@media (max-width: 440px) {
-  .theme-sonic aside { grid-template-columns: 1fr; }
-  .theme-sonic aside section:last-of-type, .theme-sonic .description, .theme-sonic .help { grid-column: auto; }
-  .theme-sonic .status { font-size: .7rem; padding: 7px 9px; }
 }

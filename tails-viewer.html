@@ -7,46 +7,19 @@
   <link rel="stylesheet" href="./css/viewer.css">
 </head>
 <body>
-  <main>
-    <header>
-      <div>
-        <h1>Tails Character Viewer</h1>
-        <p>Viewer model 3D Miles &quot;Tails&quot; Prower modular dan demonstrasi animasi WebGL</p>
-      </div>
-      <div id="status" class="status" aria-live="polite">Memuat Tails...</div>
-    </header>
-    <div class="workspace">
-      <div class="stage"><canvas id="gl" aria-label="Tampilan model Tails 3D"></canvas></div>
-      <aside>
-        <section>
-          <h2>Pose &amp; Animasi Karakter</h2>
-          <div class="button-grid" aria-label="Pilih animasi karakter">
-            <button data-animation="idle" class="active">Idle</button>
-            <button data-animation="walk">Walk / Jalan</button>
-            <button data-animation="fly" style="grid-column: 1 / -1">Fly / Terbang (Baling-baling)</button>
-          </div>
-        </section>
-        <section>
-          <h2>Sudut Kamera</h2>
-          <div class="button-grid" aria-label="Pilih sudut kamera">
-            <button data-view="front" class="active">Depan</button>
-            <button data-view="side">Samping</button>
-            <button data-view="back">Belakang</button>
-            <button data-view="threequarter">3/4 View</button>
-            <button data-view="free" style="grid-column: 1 / -1">Free Orbit</button>
-          </div>
-        </section>
-        <section class="button-grid">
-          <button id="reset" class="primary">Reset Pose</button>
-          <button id="camera-reset">Reset Kamera</button>
-        </section>
-        <div id="mode-description" class="description" aria-live="polite">
-          <strong id="mode-title">Idle</strong><span id="mode-copy">Tails berada pada pose dasar dengan napas halus, goyangan ekor santai, dan kedipan mata berkala.</span>
-        </div>
-        <p class="help">Drag pada canvas untuk memutar sudut kamera (orbit 360&deg;). Scroll mouse untuk zoom in/out. Gunakan tombol Depan, Samping, Belakang, dan 3/4 untuk melihat model dari berbagai sudut presisi.</p>
-      </aside>
-    </div>
-  </main>
+  <div id="status" class="hud-status" aria-live="polite">Memuat Tails...</div>
+  <div class="hud-keys" aria-label="Keybinds">
+    1 Idle &nbsp; 2 Walk &nbsp; 3 Fly
+  </div>
+  <div class="stage">
+    <canvas id="gl" aria-label="Tampilan model Tails 3D"></canvas>
+    <svg id="axis-gizmo" class="axis-gizmo" viewBox="0 0 100 100" role="img" aria-label="Sumbu koordinat 3D: X merah, Y hijau, Z biru">
+      <circle cx="50" cy="50" r="3" class="axis-origin" />
+      <g class="axis axis-x"><line x1="50" y1="50" x2="50" y2="50"/><text x="50" y="50">X</text></g>
+      <g class="axis axis-y"><line x1="50" y1="50" x2="50" y2="50"/><text x="50" y="50">Y</text></g>
+      <g class="axis axis-z"><line x1="50" y1="50" x2="50" y2="50"/><text x="50" y="50">Z</text></g>
+    </svg>
+  </div>
   <script type="module" src="./js/tails-viewer.js"></script>
 </body>
 </html>
