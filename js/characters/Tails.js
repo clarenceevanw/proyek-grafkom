@@ -186,7 +186,6 @@ export class Tails {
       const ear = this.#node(this.head, `Ear${s}`, [s * 0.26, 0.38, -0.05], [0.05, s * 0.16, s * -0.40]);
       this.#part(ear, 'cone',       [0, 0, 0],               [0.29, 0.72, 0.12], COLORS.orange,   0.08);
       this.#part(ear, 'cone',       [0, 0.03, 0.042],        [0.20, 0.56, 0.07], COLORS.earIn,    0.06, { r: [0.02, 0, 0] });
-      this.#part(ear, 'paraboloid', [s * 0.08, 0.01, 0.040], [0.08, 0.26, 0.05], COLORS.orangeDk, 0.08, { r: [0, 0, s * 0.22] });
       this.joints.ears[s] = ear;
 
       // Cheek fur cones
@@ -425,8 +424,6 @@ export class Tails {
     this.torso.s = [breathScale, 1, breathScale];
 
     this.torso.r[0] = fly * 0.36 + walk * 0.12;
-    this.torso.r[1] = walk * Math.sin(this.walkPhase) * 0.10;
-    this.torso.r[2] = walk * Math.cos(this.walkPhase) * 0.04;
 
     // Translasi Leher ikut gerakan torso
     this.neck.r[0] = 0.03 * breath * walk * (1 - fly) + fly * -0.22 - walk * 0.06;
@@ -438,7 +435,7 @@ export class Tails {
 
     for (const s of [-1, 1]) {
      
-      this.joints.ears[s].r[0] = 0.05 + Math.sin(t * 2.8 + s) * 0.06 * walk * (1 - fly);
+      this.joints.ears[s].r[0] = 0.05;
     }
   }
 
@@ -447,7 +444,7 @@ export class Tails {
     const { walk, fly } = this.weights;
     for (const [s, phase] of [[1, this.walkPhase], [-1, this.walkPhase + Math.PI]]) {
       const leg = this.joints.legs[s];
-      const spread = s * 0.068 * (1 - walk * 0.8);
+      const spread = s * 0.068;
       const walkHip = -Math.sin(phase) * 0.65;
       const walkKnee = Math.max(0, Math.cos(phase)) * 0.92;
       const walkFoot = -(walkHip + walkKnee) * 0.68;
@@ -474,10 +471,10 @@ export class Tails {
       const ely = s * 0.34;
       const elz = s * -0.16;
       //mode jalan dia rotasi sumbu X
+      //saat walk
       rx += (s * Math.sin(this.walkPhase) * 0.72 - rx) * walk;
-      rz += (s * 0.32 - rz) * walk;
       elx += (-1.10 - elx) * walk;
-
+      //saat fly
       rx += (0.24 - rx) * fly;
       rz += (s * 0.82 - rz) * fly;
       elx += (-0.85 - elx) * fly;
