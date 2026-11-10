@@ -111,7 +111,7 @@ function poseHierarchical(time) {
   });
 }
 
-const MODES = ['idle', 'translate', 'rotate', 'roll', 'scale', 'arbitrary', 'hierarchical'];
+const MODES = ['idle', 'translate', 'rotate', 'roll', 'arbitrary', 'hierarchical'];
 
 /* ------------------------------------------------------------------
  * Hierarki Sonic:
@@ -379,7 +379,6 @@ export class Sonic {
       case 'translate': currentPose = this.#animateTranslate(time); break;
       case 'rotate': currentPose = this.#animateSpinBall(time); break;
       case 'roll': currentPose = this.#animateRoll(time); break;
-      case 'scale': currentPose = this.#animateScale(time); break;
       case 'arbitrary': currentPose = this.#animateSomersault(time); break;
       case 'hierarchical': currentPose = poseHierarchical(time); break;
       default: currentPose = poseIdle(time + 10);
@@ -427,15 +426,6 @@ export class Sonic {
     return currentPose;
   }
 
-  // Scale: seluruh tubuh membesar-mengecil seragam (0.4x .. 1.6x).
-  #animateScale(time) {
-    const currentPose = poseIdle(time + 10);
-    const uniformScale = 1 + .6 * Math.sin(time * 1.6);
-    currentPose.sx = uniformScale;
-    currentPose.sy = uniformScale;
-    currentPose.sz = uniformScale;
-    return currentPose;
-  }
 
   // Arbitrary axis: lompat parabola + salto 360 derajat pada sumbu (1,1,0)
   // yang dinormalisasi (rumus Rodrigues di Matrix4.rotateAxis).
