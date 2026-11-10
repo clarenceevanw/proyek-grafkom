@@ -79,18 +79,6 @@ export class Tails {
     return parent.addChild(createNode({ name, t, r }));
   }
 
-  // Satu helai rambut: tabung Bezier yang menebal lalu meruncing.
-  #curveStrand(parent, name, P, rBase, rMid, rTip, color) {
-    const radiusFn = (t) => {
-      if (t < 0.35) return rBase + (rMid - rBase) * (t / 0.35);
-      return rMid * Math.pow(Math.max(0, 1 - (t - 0.35) / 0.65), 0.72) + rTip * (1 - t);
-    };
-    const tubeMesh = this.renderer.uploadMesh(makeBezierTube(P, radiusFn, 32, 14));
-    const node = this.#node(parent, name);
-    node.parts.push(createPart(tubeMesh, [0, 0, 0], [1, 1, 1], color, { spec: 0.10 }));
-    return node;
-  }
-
   #build() {
     this.#buildTorso();
     this.#buildHead();
@@ -202,9 +190,19 @@ export class Tails {
     const bangTop = [[ 0.00, 0.44, 0.26], [ 0.00, 0.68, 0.50], [ 0.00, 0.62, 0.78], [ 0.00, 0.36, 0.88]];
     const bangMid = [[-0.02, 0.41, 0.29], [-0.06, 0.58, 0.52], [-0.08, 0.48, 0.76], [-0.05, 0.24, 0.82]];
     const bangBot = [[ 0.02, 0.38, 0.31], [ 0.06, 0.48, 0.52], [ 0.07, 0.36, 0.70], [ 0.04, 0.14, 0.74]];
-    this.#curveStrand(this.bangsGrp, 'BangTop', bangTop, 0.042, 0.068, 0.004, COLORS.orange);
-    this.#curveStrand(this.bangsGrp, 'BangMid', bangMid, 0.038, 0.060, 0.004, COLORS.orange);
-    this.#curveStrand(this.bangsGrp, 'BangBot', bangBot, 0.034, 0.052, 0.004, COLORS.orange);
+    [
+      { name: 'BangTop', points: bangTop, rBase: 0.042, rMid: 0.068, rTip: 0.004 },
+      { name: 'BangMid', points: bangMid, rBase: 0.038, rMid: 0.060, rTip: 0.004 },
+      { name: 'BangBot', points: bangBot, rBase: 0.034, rMid: 0.052, rTip: 0.004 },
+    ].forEach(({ name, points, rBase, rMid, rTip }) => {
+      const radiusFn = (t) => {
+        if (t < 0.35) return rBase + (rMid - rBase) * (t / 0.35);
+        return rMid * Math.pow(Math.max(0, 1 - (t - 0.35) / 0.65), 0.72) + rTip * (1 - t);
+      };
+      const bangMesh = this.renderer.uploadMesh(makeBezierTube(points, radiusFn, 32, 14));
+      const bangNode = this.#node(this.bangsGrp, name);
+      bangNode.parts.push(createPart(bangMesh, [0, 0, 0], [1, 1, 1], COLORS.orange, { spec: 0.10 }));
+    });
   }
 
   // Rantai lengan: Shoulder -> UpperArm -> Elbow -> Wrist -> Palm -> jari.
