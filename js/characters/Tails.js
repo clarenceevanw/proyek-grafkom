@@ -445,13 +445,26 @@ export class Tails {
     for (const [s, phase] of [[1, this.walkPhase], [-1, this.walkPhase + Math.PI]]) {
       const leg = this.joints.legs[s];
       const spread = s * 0.068;
+
+      //digunakan untuk animasi berjalan
       const walkHip = -Math.sin(phase) * 0.65;
       const walkKnee = Math.max(0, Math.cos(phase)) * 0.92;
       const walkFoot = -(walkHip + walkKnee) * 0.68;
-      //mode jalan dia rotasi sumbu X 
-      const hipX = walkHip * walk + 0.28 * fly;
-      const kneeX = (walkKnee + 0.02) * walk + 0.65 * fly;
-      const footX = walkFoot * walk + 0.52 * fly;
+
+      // Mulai dari pose idle, lalu campur bertahap ke pose Walk dan Fly.
+      let hipX = 0;
+      let kneeX = 0;
+      let footX = 0;
+      
+      // kondisi walk
+      hipX += (walkHip - hipX) * walk;
+      kneeX += (walkKnee + 0.02 - kneeX) * walk;
+      footX += (walkFoot - footX) * walk;
+
+      // kondisi fly
+      hipX += (0.28 - hipX) * fly;
+      kneeX += (0.65 - kneeX) * fly;
+      footX += (0.52 - footX) * fly;
 
       leg.hip.r = [hipX, 0, spread];
       leg.knee.r = [kneeX, 0, 0];
